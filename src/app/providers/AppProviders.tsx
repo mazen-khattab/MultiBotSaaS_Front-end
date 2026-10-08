@@ -1,16 +1,11 @@
-import { Suspense } from "react"
-import { RouterProvider } from "react-router-dom"
+import type { ReactNode } from "react"
 
-import { router } from "@/app/router/router"
-import { RouteLoadingState } from "@/shared/components/feedback/RouteLoadingState"
 import { TooltipProvider } from "@/shared/ui/tooltip"
 
-export function AppProviders() {
-  return (
-    <TooltipProvider delayDuration={200}>
-      <Suspense fallback={<RouteLoadingState />}>
-        <RouterProvider router={router} />
-      </Suspense>
-    </TooltipProvider>
-  )
+interface AppProvidersProps {
+  children: ReactNode
+}
+
+export function AppProviders({ children }: AppProvidersProps) {
+  return <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
 }
