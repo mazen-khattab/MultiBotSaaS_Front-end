@@ -1,8 +1,9 @@
-import type { ComponentType } from "react"
-
-export interface LazyRouteModule {
-  Component: ComponentType
+export interface BotRouteParams {
+  botId: string
+  tabSlug?: string
 }
+
+export type TopLevelRouteArea = "public" | "client" | "bot-workspace" | "admin"
 
 export type RoutePath =
   | "/"
@@ -16,4 +17,3 @@ export type RoutePath =
   | "/admin/bots"
   | "/admin/subscriptions"
   | "/admin/transactions"
-

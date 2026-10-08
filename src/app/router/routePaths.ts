@@ -14,9 +14,10 @@ export const routePaths = {
   adminTransactions: "/admin/transactions",
 } as const
 
-export const buildBotWorkspacePath = (botId: string) =>
-  `/dashboard/bots/${encodeURIComponent(botId)}`
+export const buildBotWorkspacePath = (botId: string, tabSlug?: string) => {
+  const workspacePath = `/dashboard/bots/${encodeURIComponent(botId)}`
+  return tabSlug ? `${workspacePath}/${encodeURIComponent(tabSlug)}` : workspacePath
+}
 
 export const buildBotTabPath = (botId: string, tabSlug: string) =>
-  `${buildBotWorkspacePath(botId)}/${encodeURIComponent(tabSlug)}`
-
+  buildBotWorkspacePath(botId, tabSlug)
