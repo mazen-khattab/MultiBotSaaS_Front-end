@@ -1,6 +1,9 @@
-const readOptionalEnv = (key: keyof ImportMetaEnv): string | undefined => {
+type AppEnvKey = "VITE_APP_NAME" | "VITE_API_BASE_URL" | "VITE_SIGNALR_HUB_URL"
+
+const readOptionalEnv = (key: AppEnvKey): string | undefined => {
   const value = import.meta.env[key]
-  return typeof value === "string" && value.trim().length > 0 ? value : undefined
+  const normalizedValue = value?.trim()
+  return normalizedValue ? normalizedValue : undefined
 }
 
 export const env = Object.freeze({

@@ -7,14 +7,10 @@ export default function AuthLayout() {
   return (
     <main className="grid min-h-screen bg-white lg:grid-cols-[minmax(0,1fr)_minmax(26rem,0.8fr)]">
       <section className="relative hidden overflow-hidden bg-slate-950 p-12 text-white lg:flex lg:flex-col lg:justify-between">
-        <div
-          className="pointer-events-none absolute inset-0 opacity-70"
-          aria-hidden="true"
-          style={{
-            background:
-              "radial-gradient(circle at 18% 18%, rgba(59,130,246,.34), transparent 32%), radial-gradient(circle at 78% 76%, rgba(14,165,233,.2), transparent 30%)",
-          }}
-        />
+        <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-70" aria-hidden="true">
+          <span className="absolute left-[18%] top-[18%] size-80 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/40 blur-3xl" />
+          <span className="absolute bottom-[12%] right-[8%] size-72 rounded-full bg-primary/25 blur-3xl" />
+        </div>
         <div className="relative flex items-center gap-3">
           <span className="flex size-11 items-center justify-center rounded-xl bg-blue-500">
             <Bot className="size-6" aria-hidden="true" />

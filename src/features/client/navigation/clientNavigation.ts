@@ -7,10 +7,15 @@ export const clientNavigation: readonly NavigationGroupDefinition[] = [
   {
     label: "Workspace",
     items: [
-      { title: "Overview", href: routePaths.dashboard, icon: LayoutDashboard, end: true },
-      { title: "My bots", href: routePaths.clientBots, icon: Bot, end: true },
-      { title: "Settings", href: routePaths.clientSettings, icon: Settings },
+      {
+        key: "client-overview",
+        title: "Overview",
+        href: routePaths.dashboard,
+        icon: LayoutDashboard,
+        end: true,
+      },
+      { key: "client-bots", title: "My bots", href: routePaths.clientBots, icon: Bot, end: true },
+      { key: "client-settings", title: "Settings", href: routePaths.clientSettings, icon: Settings },
     ],
   },
 ] as const
-

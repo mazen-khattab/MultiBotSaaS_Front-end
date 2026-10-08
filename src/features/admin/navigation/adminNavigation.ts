@@ -7,12 +7,27 @@ export const adminNavigation: readonly NavigationGroupDefinition[] = [
   {
     label: "Management",
     items: [
-      { title: "Overview", href: routePaths.admin, icon: LayoutDashboard, end: true },
-      { title: "Users", href: routePaths.adminUsers, icon: Users },
-      { title: "Bots", href: routePaths.adminBots, icon: Bot },
-      { title: "Subscriptions", href: routePaths.adminSubscriptions, icon: CreditCard },
-      { title: "Transactions", href: routePaths.adminTransactions, icon: ReceiptText },
+      {
+        key: "admin-overview",
+        title: "Overview",
+        href: routePaths.admin,
+        icon: LayoutDashboard,
+        end: true,
+      },
+      { key: "admin-users", title: "Users", href: routePaths.adminUsers, icon: Users },
+      { key: "admin-bots", title: "Bots", href: routePaths.adminBots, icon: Bot },
+      {
+        key: "admin-subscriptions",
+        title: "Subscriptions",
+        href: routePaths.adminSubscriptions,
+        icon: CreditCard,
+      },
+      {
+        key: "admin-transactions",
+        title: "Transactions",
+        href: routePaths.adminTransactions,
+        icon: ReceiptText,
+      },
     ],
   },
 ] as const
-
