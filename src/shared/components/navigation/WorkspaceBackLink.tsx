@@ -2,11 +2,11 @@ import { ArrowLeft } from "lucide-react"
 import { Link } from "react-router-dom"
 
 interface WorkspaceBackLinkProps {
-  to: string
+  to?: string
   onNavigate?: () => void
 }
 
-export function WorkspaceBackLink({ to, onNavigate }: WorkspaceBackLinkProps) {
+export function WorkspaceBackLink({ to = "/dashboard/bots", onNavigate }: WorkspaceBackLinkProps) {
   return (
     <Link
       to={to}
@@ -18,4 +18,3 @@ export function WorkspaceBackLink({ to, onNavigate }: WorkspaceBackLinkProps) {
     </Link>
   )
 }
-

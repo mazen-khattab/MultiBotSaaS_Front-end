@@ -27,6 +27,7 @@ export default function BotWorkspaceLayout() {
                 <nav aria-label="Bot workspace navigation">
                   <NavigationItem
                     item={{
+                      key: "bot-home",
                       title: "Home",
                       href: buildBotWorkspacePath(botId),
                       icon: House,
