@@ -1,8 +1,8 @@
-import { ArrowRight, ShieldCheck } from "lucide-react"
+import { ShieldCheck } from "lucide-react"
 import { Link } from "react-router-dom"
 
 import { routePaths } from "@/app/router/routePaths"
-import { Button } from "@/shared/ui/button"
+import { LoginForm } from "@/features/auth/components/LoginForm"
 
 export default function AdminLoginPage() {
   return (
@@ -17,41 +17,7 @@ export default function AdminLoginPage() {
         </p>
       </div>
 
-      <form className="space-y-5" aria-label="Administrator sign in" onSubmit={(event) => event.preventDefault()}>
-        <div className="space-y-2">
-          <label htmlFor="admin-email" className="text-sm font-medium text-slate-800">
-            Admin email
-          </label>
-          <input
-            id="admin-email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            placeholder="admin@company.com"
-            className="h-11 w-full rounded-lg border bg-white px-3 text-sm shadow-sm placeholder:text-slate-400 focus:border-violet-500 focus:outline-none focus:ring-3 focus:ring-violet-500/15"
-          />
-        </div>
-        <div className="space-y-2">
-          <label htmlFor="admin-password" className="text-sm font-medium text-slate-800">
-            Password
-          </label>
-          <input
-            id="admin-password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="Enter your password"
-            className="h-11 w-full rounded-lg border bg-white px-3 text-sm shadow-sm placeholder:text-slate-400 focus:border-violet-500 focus:outline-none focus:ring-3 focus:ring-violet-500/15"
-          />
-        </div>
-        <Button type="submit" className="w-full" disabled title="Authentication is added in Part 2">
-          Continue to admin
-          <ArrowRight aria-hidden="true" />
-        </Button>
-        <p className="text-center text-xs text-muted-foreground">
-          Admin authentication will be enabled in Part 2.
-        </p>
-      </form>
+      <LoginForm realm="admin" />
 
       <div className="mt-8 border-t pt-6 text-center text-sm text-muted-foreground">
         Looking for your workspace?{" "}
