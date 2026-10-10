@@ -2,20 +2,20 @@ import { AlertTriangle, RotateCcw } from "lucide-react"
 import { Link, isRouteErrorResponse, useRouteError } from "react-router-dom"
 
 import { routePaths } from "@/app/router/routePaths"
+import { ApiErrorAlert } from "@/shared/components/feedback/ApiErrorAlert"
 import { Button } from "@/shared/ui/button"
 
-function getErrorMessage(error: unknown): string {
+function getPresentedError(error: unknown): unknown {
   if (isRouteErrorResponse(error)) {
-    return error.status === 404
+    const message = error.status === 404
       ? "The requested page could not be found."
       : "The page could not be loaded."
+    return { message }
   }
 
-  if (error instanceof Error && import.meta.env.DEV) {
-    return error.message
-  }
-
-  return "An unexpected error interrupted this page."
+  // Route errors share API presentation; development mode must not expose
+  // raw Error messages or backend debug fields in the public fallback.
+  return error
 }
 
 export function PageErrorState() {
@@ -30,7 +30,7 @@ export function PageErrorState() {
         <h1 className="mt-5 text-2xl font-semibold tracking-tight text-slate-950">
           Something went wrong
         </h1>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">{getErrorMessage(error)}</p>
+        <ApiErrorAlert error={getPresentedError(error)} title="Unable to load this page" className="mt-4 text-left" />
         <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
           <Button type="button" onClick={() => window.location.reload()}>
             <RotateCcw aria-hidden="true" />

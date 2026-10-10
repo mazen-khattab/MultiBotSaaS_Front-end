@@ -102,6 +102,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await refreshCoordinator.getPendingRefresh()?.catch(() => undefined);
       const version = ++actionVersion.current;
       action.current = "login";
+      console.log(
+        "login attempt",
+        realm,
+        credentials,
+        version,
+        actionVersion.current,
+      );
       try {
         const user = await (realm === "admin"
           ? AuthService.loginAdmin(credentials)
@@ -143,13 +150,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const refresh = useCallback(
-    () =>
-      refreshCoordinator.resolveRealm() === "admin"
-        ? AuthService.refreshAdmin()
-        : AuthService.refreshUser(),
-    [],
-  );
+  const refresh = useCallback(() => {
+    console.log("refresh attempt", refreshCoordinator.resolveRealm());
+    return refreshCoordinator.resolveRealm() === "admin"
+      ? AuthService.refreshAdmin()
+      : AuthService.refreshUser();
+  }, []);
 
   const value = useMemo(
     () => ({
