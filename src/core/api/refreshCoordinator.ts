@@ -39,6 +39,7 @@ export const createRefreshCoordinator = (getPathname: () => string = browserPath
   let sessionVersion = 0
   let expiredError: NormalizedApiError | null = null
   let inFlight: Promise<RefreshResponse> | null = null
+  let inFlightRealm: AuthRealm | null = null
   const successSubscribers = new Set<Subscriber<RefreshSuccessEvent>>()
   const failureSubscribers = new Set<Subscriber<RefreshFailureEvent>>()
   const expirySubscribers = new Set<Subscriber<NormalizedApiError>>()
@@ -56,11 +57,14 @@ export const createRefreshCoordinator = (getPathname: () => string = browserPath
     publish(expirySubscribers, expiredError)
   }
 
-  const refresh = (execute: RefreshRequest): Promise<RefreshResponse> => {
+  const refresh = (execute: RefreshRequest, realm: AuthRealm = resolveRealm()): Promise<RefreshResponse> => {
     if (expiredError) return Promise.reject(expiredError)
-    if (inFlight) return inFlight
+    if (inFlight) {
+      return realm === inFlightRealm ? inFlight : Promise.reject(
+        normalizeApiError("A different authentication realm is being refreshed."),
+      )
+    }
 
-    const realm = resolveRealm()
     const startedVersion = sessionVersion
     const pending = Promise.resolve()
       .then(() => execute(authEndpoints[realm].refresh))
@@ -80,9 +84,13 @@ export const createRefreshCoordinator = (getPathname: () => string = browserPath
         throw error
       })
       .finally(() => {
-        if (inFlight === pending) inFlight = null
+        if (inFlight === pending) {
+          inFlight = null
+          inFlightRealm = null
+        }
       })
     inFlight = pending
+    inFlightRealm = realm
     return pending
   }
 
@@ -96,6 +104,7 @@ export const createRefreshCoordinator = (getPathname: () => string = browserPath
     },
     getSessionVersion: () => sessionVersion,
     getExpiredError: () => expiredError,
+    getPendingRefresh: () => inFlight,
     refresh,
     notifyAuthExpired,
     onRefreshSuccess: (callback: Subscriber<RefreshSuccessEvent>) => subscribe(successSubscribers, callback),

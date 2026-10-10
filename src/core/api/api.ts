@@ -7,7 +7,7 @@ import { HTTP_STATUS } from "@/core/api/httpStatus"
 import { refreshCoordinator } from "@/core/api/refreshCoordinator"
 import { env } from "@/core/config/env"
 import { authEndpoints } from "@/services/auth/auth.endpoints"
-import type { AuthLoginResponse } from "@/services/auth/auth.types"
+import type { AuthLoginResponse, AuthRealm } from "@/services/auth/auth.types"
 
 interface AuthRequestConfig extends InternalAxiosRequestConfig {
   _authRetry?: boolean
@@ -24,16 +24,17 @@ export const api = axios.create({
   },
 })
 
-const isRefreshRequest = (config: AuthRequestConfig) => {
+const isLoginOrRefreshRequest = (config: AuthRequestConfig) => {
   const pathname = new URL(api.getUri(config), "http://frontend.invalid").pathname.replace(/\/$/, "")
-  return pathname === authEndpoints.user.refresh || pathname === authEndpoints.admin.refresh
+  return [authEndpoints.user.refresh, authEndpoints.admin.refresh, authEndpoints.user.login, authEndpoints.admin.login]
+    .some((endpoint) => pathname === endpoint)
 }
 
-export const refreshSession = () => refreshCoordinator.refresh(async (endpoint) => {
+export const refreshSession = (realm?: AuthRealm) => refreshCoordinator.refresh(async (endpoint) => {
   const response = await api.post<ApiResponse<AuthLoginResponse>>(endpoint)
   if (!isApiResponse<AuthLoginResponse>(response.data)) throw normalizeApiError(response.data)
   return response.data
-})
+}, realm)
 
 api.interceptors.request.use((config: AuthRequestConfig) => {
   config.withCredentials = true
@@ -56,7 +57,8 @@ api.interceptors.response.use(
       refreshCoordinator.notifyAuthExpired(error)
       throw error
     }
-    if (!config || isRefreshRequest(config)) throw error
+    // Invalid credentials are a login failure, not an expired access token.
+    if (!config || isLoginOrRefreshRequest(config)) throw error
     if (config._authRetry) {
       refreshCoordinator.notifyAuthExpired(error)
       throw error

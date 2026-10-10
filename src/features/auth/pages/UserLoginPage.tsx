@@ -1,8 +1,8 @@
-import { ArrowRight, LockKeyhole } from "lucide-react"
+import { LockKeyhole } from "lucide-react"
 import { Link } from "react-router-dom"
 
 import { routePaths } from "@/app/router/routePaths"
-import { Button } from "@/shared/ui/button"
+import { LoginForm } from "@/features/auth/components/LoginForm"
 
 export default function UserLoginPage() {
   return (
@@ -17,41 +17,7 @@ export default function UserLoginPage() {
         </p>
       </div>
 
-      <form className="space-y-5" aria-label="User sign in" onSubmit={(event) => event.preventDefault()}>
-        <div className="space-y-2">
-          <label htmlFor="email" className="text-sm font-medium text-slate-800">
-            Email address
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            placeholder="you@company.com"
-            className="h-11 w-full rounded-lg border bg-white px-3 text-sm shadow-sm transition-shadow placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-3 focus:ring-blue-500/15"
-          />
-        </div>
-        <div className="space-y-2">
-          <label htmlFor="password" className="text-sm font-medium text-slate-800">
-            Password
-          </label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="Enter your password"
-            className="h-11 w-full rounded-lg border bg-white px-3 text-sm shadow-sm transition-shadow placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-3 focus:ring-blue-500/15"
-          />
-        </div>
-        <Button type="submit" className="w-full" disabled title="Authentication is added in Part 2">
-          Sign in
-          <ArrowRight aria-hidden="true" />
-        </Button>
-        <p className="text-center text-xs text-muted-foreground">
-          Sign-in integration will be enabled in Part 2.
-        </p>
-      </form>
+      <LoginForm realm="user" />
 
       <div className="mt-8 border-t pt-6 text-center text-sm text-muted-foreground">
         Platform administrator?{" "}
