@@ -79,10 +79,8 @@ export const normalizeApiError = (rawError: unknown): NormalizedApiError => {
   let normalized: NormalizedApiError
 
   if (isSessionExpiredPayload(payload) && (!transportError || status === HTTP_STATUS.UNAUTHORIZED)) {
-    console.log("session expired detected")
     normalized = { kind: "session", message: SESSION_EXPIRED_MESSAGE, statusCode: 401 }
   } else if (isApiErrorResponse(payload)) {
-    console.log("structured api error detected")
     normalized = {
       kind: "api",
       message: payload.message,
@@ -91,13 +89,10 @@ export const normalizeApiError = (rawError: unknown): NormalizedApiError => {
       method: payload.method,
       traceId: payload.traceId,
     }
-    console.log("normalized api error", normalized)
   } else if (status === HTTP_STATUS.UNAUTHORIZED) {
-    console.log("bare unauthorized error detected")
     normalized = { kind: "unauthorized", message: message || "Authentication required.", statusCode: 401 }
   } else if (transportError && !transportError.response &&
     (transportError.request || ["ERR_NETWORK", "ECONNABORTED", "ETIMEDOUT"].includes(transportError.code ?? ""))) {
-    console.log("network error detected")
     normalized = { kind: "network", message: "Unable to reach the server. Please try again." }
   } else {
     normalized = { kind: "unknown", message: message || "The request could not be completed." }

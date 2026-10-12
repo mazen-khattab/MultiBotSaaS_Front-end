@@ -315,7 +315,8 @@ test("real application home and Runs routes use backend module code instead of b
     };
     mount(pathname, { routes: appRoutes });
     await screen.findByRole("link", { name: "Runs" });
-    if (pathname.endsWith("/runs")) await screen.findByText("No runs found");
+    // The first lazy module compiles through Vite while other suites run too.
+    if (pathname.endsWith("/runs")) await screen.findByText("No runs found", {}, { timeout: 5000 });
     else await screen.findByRole("heading", { name: "Workspace ready" });
     assert.equal(
       screen.getByRole("link", { name: "Home" }).getAttribute("href"),
@@ -326,6 +327,19 @@ test("real application home and Runs routes use backend module code instead of b
     cleanup();
     mountedRouter.dispose();
   }
+});
+
+test("real connected-accounts route loads the current bot's account list", async () => {
+  const account = { id: 12, displayName: "Workspace account", platform: "Facebook", expiredAt: "2026-10-25T14:30:00Z", isActive: true };
+  api.defaults.adapter = async (config) => {
+    if (config.url === `/api/v1/bots/${liveBot.id}`) return apiResponse(config, liveBot);
+    assert.equal(config.url, `/api/v1/connectedaccounts/${liveBot.id}`);
+    assert.equal(config.params, undefined);
+    return apiResponse(config, [account]);
+  };
+  mount(buildBotTabPath(String(liveBot.id), "connected-accounts"), { routes: appRoutes });
+  await screen.findByText("Workspace account", {}, { timeout: 5000 });
+  assert.equal(screen.getByRole("link", { name: "Connected accounts" }).getAttribute("aria-current"), "page");
 });
 
 test("sidebar preserves registry order, encodes links, and opens only the selected tab", async () => {

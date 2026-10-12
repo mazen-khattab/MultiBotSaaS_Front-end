@@ -8,6 +8,7 @@ export const connectedAccountSchema = z.object({
   id: z.number().int().positive(), displayName: z.string(), platform: z.string(),
   expiredAt: z.string(), isActive: z.boolean(),
 })
+
 export type ConnectedAccountDto = z.infer<typeof connectedAccountSchema>
 
 export const EligibleAccountsService = {
