@@ -1,17 +1,19 @@
 import { Bot, Boxes, PlugZap } from "lucide-react"
-import { useParams } from "react-router-dom"
+import { useOutletContext } from "react-router-dom"
 
+import type { BotWorkspaceContextValue } from "@/features/bots/botWorkspace.types"
 import { PageContainer } from "@/shared/components/layout/PageContainer"
 
 export default function BotWorkspaceHomePage() {
-  const { botId } = useParams<{ botId: string }>()
+  // The parent renders this page only after retrieving a supported workspace.
+  const { descriptor } = useOutletContext<BotWorkspaceContextValue>()
 
   return (
     <PageContainer>
       <div className="mb-7">
         <p className="text-sm font-semibold text-blue-600">Bot workspace</p>
         <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
-          {botId ? `Bot ${botId}` : "Bot overview"}
+          {descriptor.name}
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
           This workspace has its own shell, separate from the client dashboard navigation.
@@ -31,14 +33,13 @@ export default function BotWorkspaceHomePage() {
           <span className="flex size-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
             <Boxes className="size-5" aria-hidden="true" />
           </span>
-          <h3 className="mt-5 text-xl font-semibold text-slate-950">Module boundary ready</h3>
+          <h3 className="mt-5 text-xl font-semibold text-slate-950">Workspace ready</h3>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Dynamic tabs, module resolution, and entitlement checks are deliberately deferred. They require the
-            documented bot registry and backend capabilities from later parts.
+            Use the workspace navigation to open this bot's available pages.
           </p>
           <div className="mt-6 flex items-center gap-2 text-xs font-medium text-slate-500">
             <PlugZap className="size-4" aria-hidden="true" />
-            No network request is made by this page.
+            Bot workspace
           </div>
         </div>
       </section>

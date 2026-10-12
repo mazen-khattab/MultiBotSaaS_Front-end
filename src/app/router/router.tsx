@@ -3,6 +3,7 @@ import { createBrowserRouter, type RouteObject } from "react-router-dom"
 import { RequireAuth } from "@/app/router/RequireAuth"
 import { RequireRole } from "@/app/router/RequireRole"
 import { routePaths } from "@/app/router/routePaths"
+import { botWorkspaceLoader } from "@/features/bots/loaders/botWorkspaceLoader"
 import { PageErrorState } from "@/shared/components/feedback/PageErrorState"
 import { RouteLoadingState } from "@/shared/components/feedback/RouteLoadingState"
 
@@ -60,6 +61,8 @@ export const appRoutes: RouteObject[] = [
               },
               {
                 path: routePaths.botWorkspacePattern,
+                // The boundary reports blocked data until a real adapter exists.
+                loader: botWorkspaceLoader,
                 lazy: lazyPage(() => import("@/layouts/bot/BotWorkspaceLayout")),
                 children: [
                   {
@@ -68,6 +71,11 @@ export const appRoutes: RouteObject[] = [
                   },
                   {
                     path: ":tabSlug",
+                    lazy: lazyPage(() => import("@/features/bots/pages/BotTabRoutePage")),
+                  },
+                  {
+                    // Unknown nested paths keep the workspace's navigation.
+                    path: "*",
                     lazy: lazyPage(() => import("@/features/bots/pages/BotTabRoutePage")),
                   },
                 ],

@@ -1,54 +1,51 @@
-import { Bot, House } from "lucide-react"
-import { Outlet, useParams } from "react-router-dom"
+import { Outlet, useLoaderData, useParams } from "react-router-dom"
 
-import { buildBotWorkspacePath, routePaths } from "@/app/router/routePaths"
 import type { BotRouteParams } from "@/app/router/routeTypes"
+import type { BotWorkspaceContextValue, BotWorkspaceLoaderData } from "@/features/bots/botWorkspace.types"
+import { BotWorkspaceSidebar } from "@/features/bots/components/BotWorkspaceSidebar"
+import { BotWorkspaceState } from "@/features/bots/components/BotWorkspaceState"
+import { UnsupportedBotModule } from "@/features/bots/components/UnsupportedBotModule"
+import { useBotModule } from "@/features/bots/hooks/useBotModule"
+import type { BotModulesRegistry } from "@/registry/botRegistry.types"
 import { DashboardShell } from "@/shared/components/layout/DashboardShell"
-import { DashboardSidebar } from "@/shared/components/layout/DashboardSidebar"
-import { NavigationItem } from "@/shared/components/navigation/NavigationItem"
-import { WorkspaceBackLink } from "@/shared/components/navigation/WorkspaceBackLink"
+import { PageContainer } from "@/shared/components/layout/PageContainer"
 
-export default function BotWorkspaceLayout() {
+/** Retrieval belongs to the loader; the layout only composes supplied data. */
+export default function BotWorkspaceLayout({ registry }: { registry?: BotModulesRegistry }) {
   const { botId } = useParams<keyof BotRouteParams>()
-  const workspaceTitle = botId ? `Bot ${botId}` : "Bot workspace"
+  const workspace = useLoaderData<BotWorkspaceLoaderData>()
+  const descriptor = workspace.status === "ready" ? workspace.descriptor : null
+  const resolved = useBotModule(descriptor, registry)
+  const workspaceTitle = descriptor?.name ?? (botId ? `Bot ${botId}` : "Bot workspace")
+
+  // Children receive context only after both data retrieval and module lookup
+  // succeed. Blocked or unsupported workspaces never render a module page.
+  const context: BotWorkspaceContextValue | null = descriptor && resolved.status === "ready"
+    ? { descriptor, module: resolved.module }
+    : null
 
   return (
     <DashboardShell
       title={workspaceTitle}
       description="Bot workspace"
       sidebar={(onNavigate) => (
-        <DashboardSidebar
-          contextLabel="Bot workspace"
-          contextTitle={workspaceTitle}
-          topContent={
-            <div className="space-y-4">
-              <WorkspaceBackLink to={routePaths.clientBots} onNavigate={onNavigate} />
-              {botId ? (
-                <nav aria-label="Bot workspace navigation">
-                  <NavigationItem
-                    item={{
-                      key: "bot-home",
-                      title: "Home",
-                      href: buildBotWorkspacePath(botId),
-                      icon: House,
-                      end: true,
-                    }}
-                    onNavigate={onNavigate}
-                  />
-                </nav>
-              ) : null}
-            </div>
-          }
-          footer={
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <Bot className="size-4 text-blue-400" aria-hidden="true" />
-              Modules arrive in Part 3
-            </div>
-          }
+        <BotWorkspaceSidebar
+          botId={botId}
+          title={workspaceTitle}
+          tabs={resolved.tabs}
+          onNavigate={onNavigate}
         />
       )}
     >
-      <Outlet />
+      {context ? <Outlet context={context} /> : (
+        <PageContainer>
+          {resolved.status === "unsupported" ? (
+            <UnsupportedBotModule error={resolved.error} />
+          ) : (
+            <BotWorkspaceState state={workspace.status === "not-found" ? "not-found" : "blocked"} />
+          )}
+        </PageContainer>
+      )}
     </DashboardShell>
   )
 }
