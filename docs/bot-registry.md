@@ -26,8 +26,9 @@ production mock definitions.
 
 Runtime bot API integration remains deferred until the contract exposes
 subscribed bots, a bot descriptor by ID, and `UiModuleCode`. Workspace layout and
-dynamic tab routing integration belong to Part 11. Existing routes remain the
-handoff point for that work.
+dynamic tab routing now consume the registry through the Part 11 loader/context
+boundary; see `docs/bot-workspace.md` for its blocked production state and the
+adapter interface.
 
 Validate with `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build`.
 Registry tests exercise registered/unsupported lookups, exact key handling,

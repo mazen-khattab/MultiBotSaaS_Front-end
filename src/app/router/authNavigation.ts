@@ -4,6 +4,7 @@ import type { AuthRealm } from "@/services/auth/auth.types"
 const isUnderPath = (pathname: string, root: string) => pathname === root || pathname.startsWith(`${root}/`)
 
 export const getBootstrapRealm = (pathname: string): AuthRealm | null => {
+  console.log("getBootstrapRealm", pathname, routePaths.admin, routePaths.dashboard);
   if (isUnderPath(pathname, routePaths.admin)) return "admin"
   if (isUnderPath(pathname, routePaths.dashboard)) return "user"
   return null
