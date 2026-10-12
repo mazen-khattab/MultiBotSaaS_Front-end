@@ -1,6 +1,7 @@
 import type { FieldValues } from "react-hook-form"
 
 import type { CreateRunDto } from "@/features/runs/types/runs.types"
+import type { ConnectedAccountDto } from "@/features/runs/services/EligibleAccountsService"
 import type { StartRunConfig } from "@/registry/configs/runsConfig.types"
 
 /** Contract IDs are positive C# int values, including the bot route parameter. */
@@ -13,6 +14,7 @@ export async function createRunAdapter<TInput extends FieldValues, TOutput exten
   botId: string,
   values: TOutput,
   config: StartRunConfig<TInput, TOutput>,
+  eligibleAccounts: readonly ConnectedAccountDto[],
 ): Promise<CreateRunDto> {
   if (!/^\d+$/.test(botId) || !isContractId(Number(botId))) {
     throw { message: "This bot ID is invalid. Open the bot workspace again." }
@@ -22,10 +24,10 @@ export async function createRunAdapter<TInput extends FieldValues, TOutput exten
   if (!isContractId(selection.connectedAccountId)) {
     throw { message: "Choose an available connected account." }
   }
-  if (selection.accountStatus !== "Active") {
-    throw { message: selection.accountStatus === null
-      ? "The selected account's status cannot be verified. Run creation is unavailable until account status is provided."
-      : "Choose a connected account with Active status before starting a run." }
+  // Membership in the eligible response proves the server checked Active status,
+  // ownership, bot assignment, and cookie expiry. Do not repeat those rules here.
+  if (!eligibleAccounts.some((account) => account.id === selection.connectedAccountId)) {
+    throw { message: "Choose an eligible connected account. Refresh the account options if your selection is no longer available." }
   }
   if (selection.targetGroupId != null && !isContractId(selection.targetGroupId)) {
     throw { message: "Choose an available target group." }

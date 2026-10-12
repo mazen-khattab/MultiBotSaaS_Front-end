@@ -1,7 +1,9 @@
 import type { BotModulesRegistry } from "@/registry/botRegistry.types"
+import { defineScraperModule } from "@/registry/definitions/scraperModules"
 
-// Part 10 introduces the composition boundary only. The backend contract has
-// neither a bot descriptor endpoint nor confirmed UiModuleCode values, so no
-// guessed module definitions or subscription data belong in this registry.
-// Future definitions must use readonly metadata and tab/config collections.
-export const botModulesRegistry: BotModulesRegistry = Object.freeze({})
+// Exact backend codes select UI only; ownership comes from the Bot API.
+export const botModulesRegistry: BotModulesRegistry = Object.freeze({
+  "FB-MEMBERS-SCRAPER": defineScraperModule("FB-MEMBERS-SCRAPER"),
+  "FB-POSTS-SCRAPER": defineScraperModule("FB-POSTS-SCRAPER"),
+  "FB-MEMBERS-MESSAGES-SCRAPER": defineScraperModule("FB-MEMBERS-MESSAGES-SCRAPER"),
+})

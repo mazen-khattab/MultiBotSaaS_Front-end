@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import { after, afterEach, before, beforeEach, test } from "node:test";
 
 import { House } from "lucide-react";
+import { AxiosError } from "axios";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { JSDOM } from "jsdom";
 import React from "react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { createServer } from "vite";
 
 const h = React.createElement;
-const blockedTitle =
-  "Bot workspace data unavailable until backend contract is exposed";
 const user = {
   userId: "test-user",
   email: "user@example.com",
@@ -32,13 +32,14 @@ const descriptor = {
 };
 
 let server, dom, mountedRouter, browserRouter, api, originalAdapter, httpCalls;
-let AuthContext, BotWorkspaceLayout, useBotModule;
+let AuthContext, BotWorkspaceLayout, useBotModule, BotsService, ClientBotsPage;
+const clients = [];
 let createBotWorkspaceLoader,
   botWorkspaceLoader,
   appRoutes,
   buildBotWorkspacePath,
   buildBotTabPath;
-let render, renderHook, screen, cleanup, act, fireEvent, within;
+let render, renderHook, screen, cleanup, act, fireEvent, within, waitFor;
 const originalGlobals = new Map();
 
 before(async () => {
@@ -79,7 +80,7 @@ before(async () => {
     addEventListener() {},
     removeEventListener() {},
   });
-  ({ render, renderHook, screen, cleanup, act, fireEvent, within } =
+  ({ render, renderHook, screen, cleanup, act, fireEvent, within, waitFor } =
     await import("@testing-library/react/pure.js"));
   // Inject test data only through the loader and registry interfaces. Exercise
   // the real layout, navigation, hook, and route page without replacing them.
@@ -93,6 +94,8 @@ before(async () => {
   ));
   ({ api } = await server.ssrLoadModule("/src/core/api/api.ts"));
   originalAdapter = api.defaults.adapter;
+  ({ BotsService } = await server.ssrLoadModule("/src/features/bots/services/BotsService.ts"));
+  ({ default: ClientBotsPage } = await server.ssrLoadModule("/src/features/client/pages/ClientBotsPage.tsx"));
   ({ default: BotWorkspaceLayout } = await server.ssrLoadModule(
     "/src/layouts/bot/BotWorkspaceLayout.tsx",
   ));
@@ -128,11 +131,7 @@ afterEach(async () => {
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
-  assert.equal(
-    httpCalls,
-    0,
-    "Workspace composition must not invent an API request",
-  );
+  clients.splice(0).forEach((client) => client.clear());
 });
 
 after(async () => {
@@ -195,6 +194,14 @@ const loaderArgs = () => ({
   context: {},
 });
 
+const liveBot = {
+  id: 73, name: "Backend test bot", description: null, currentPrice: 25,
+  uiModuleCode: "FB-POSTS-SCRAPER", cooldownMinutes: 180, isActive: true,
+  status: "Active", isSubscribed: true, subscribedAt: "2026-10-01T00:00:00Z",
+};
+const apiResponse = (config, data) => ({ config, status: 200, statusText: "OK", headers: {},
+  data: { isSuccess: true, message: "", errorType: 0, data } });
+
 const mount = (
   pathname,
   { registry, loadDescriptor = async () => descriptor, routes } = {},
@@ -216,19 +223,30 @@ const mount = (
     routes ?? appRoutes.map(withTestWorkspace),
     { initialEntries: [pathname] },
   );
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  clients.push(client);
   return render(
     h(
       AuthContext.Provider,
       { value: auth },
-      h(RouterProvider, { router: mountedRouter }),
+      h(QueryClientProvider, { client }, h(RouterProvider, { router: mountedRouter })),
     ),
   );
 };
 
-test("default workspace loader reports blocked data without synthesizing a descriptor", async () => {
-  assert.deepEqual(await botWorkspaceLoader(loaderArgs()), {
-    status: "blocked",
+test("default workspace loader retrieves owned BotDto and projects its actual module code", async () => {
+  const args = { ...loaderArgs(), params: { botId: String(liveBot.id) } };
+  api.defaults.adapter = async (config) => {
+    httpCalls += 1;
+    assert.equal(config.url, `/api/v1/bots/${liveBot.id}`);
+    assert.equal(config.params.requireOwnership, true);
+    assert.equal(config.withCredentials, true);
+    return apiResponse(config, liveBot);
+  };
+  assert.deepEqual(await botWorkspaceLoader(args), {
+    status: "ready", descriptor: { botId: String(liveBot.id), name: liveBot.name, uiModuleCode: liveBot.uiModuleCode },
   });
+  assert.equal(httpCalls, 1);
   assert.deepEqual(await botWorkspaceLoader({ ...loaderArgs(), params: {} }), {
     status: "not-found",
   });
@@ -284,16 +302,24 @@ test("useBotModule separates unavailable, unsupported, and ready descriptor stat
   assert.equal(pageLoads(), 0);
 });
 
-test("real application home and tab routes display the blocked state with Home navigation", async () => {
+test("real application home and Runs routes use backend module code instead of bot IDs", async () => {
   for (const pathname of [
-    buildBotWorkspacePath(descriptor.botId),
-    buildBotTabPath(descriptor.botId, "second"),
+    buildBotWorkspacePath(String(liveBot.id)),
+    buildBotTabPath(String(liveBot.id), "runs"),
   ]) {
+    api.defaults.adapter = async (config) => {
+      if (config.url === `/api/v1/bots/${liveBot.id}`) return apiResponse(config, liveBot);
+      assert.equal(config.url, "/api/v1/runs");
+      assert.equal(config.params.botId, liveBot.id);
+      return apiResponse(config, { items: [], totalItems: 0, totalPages: 0, currentPage: 1 });
+    };
     mount(pathname, { routes: appRoutes });
-    await screen.findByRole("heading", { name: blockedTitle });
+    await screen.findByRole("link", { name: "Runs" });
+    if (pathname.endsWith("/runs")) await screen.findByText("No runs found");
+    else await screen.findByRole("heading", { name: "Workspace ready" });
     assert.equal(
       screen.getByRole("link", { name: "Home" }).getAttribute("href"),
-      buildBotWorkspacePath(descriptor.botId),
+      buildBotWorkspacePath(String(liveBot.id)),
     );
     assert.equal(screen.queryByTestId("module-page"), null);
     assert.equal(mountedRouter.state.location.pathname, pathname);
@@ -481,4 +507,60 @@ test("changing bots retrieves fresh context rather than retaining the previous b
     screen.getByRole("link", { name: "Home" }).getAttribute("href"),
     buildBotWorkspacePath("next-test-bot"),
   );
+});
+
+test("Bot services use real catalog, subscriptions, and ownership params without guessing module codes", async () => {
+  const calls = [];
+  api.defaults.adapter = async (config) => {
+    calls.push(config);
+    assert.equal(config.withCredentials, true);
+    assert.equal(config.headers.has("Authorization"), false);
+    return apiResponse(config, config.url === "/api/v1/bots" || config.url.endsWith("/subscribed") ? [liveBot] : liveBot);
+  };
+  assert.deepEqual(await BotsService.getBots(), [liveBot]);
+  assert.deepEqual(await BotsService.getSubscribedBots(), [liveBot]);
+  assert.equal((await BotsService.getBot(73, false)).uiModuleCode, "FB-POSTS-SCRAPER");
+  await BotsService.getBot(73, true);
+  assert.deepEqual(calls.map((call) => call.url), ["/api/v1/bots", "/api/v1/bots/subscribed", "/api/v1/bots/73", "/api/v1/bots/73"]);
+  assert.equal(calls[2].params.requireOwnership, false);
+  assert.equal(calls[3].params.requireOwnership, true);
+});
+
+test("owned workspace retrieval handles 404, unsubscribed, mismatched and unknown bot data", async () => {
+  const args = { ...loaderArgs(), params: { botId: "73" } };
+  for (const data of [{ ...liveBot, isSubscribed: false }, { ...liveBot, id: 74 }]) {
+    api.defaults.adapter = async (config) => apiResponse(config, data);
+    assert.deepEqual(await botWorkspaceLoader(args), { status: "not-found" });
+  }
+  api.defaults.adapter = async (config) => { throw new AxiosError("Not found", AxiosError.ERR_BAD_RESPONSE, config, undefined, {
+    config, status: 404, statusText: "Not Found", headers: {},
+    data: { isSuccess: false, statusCode: 404, message: "Bot not found or not owned.", path: config.url, method: "GET", traceId: "test" },
+  }); };
+  assert.deepEqual(await botWorkspaceLoader(args), { status: "not-found" });
+  api.defaults.adapter = async (config) => apiResponse(config, { ...liveBot, uiModuleCode: "UNSUPPORTED_TEST_MODULE" });
+  mount(buildBotWorkspacePath("73"), { routes: appRoutes });
+  await screen.findByText("UNSUPPORTED_TEST_MODULE");
+  assert.equal(screen.queryByRole("link", { name: "Runs" }), null);
+});
+
+test("subscribed bots and catalog load independently and only subscribed bots link to workspaces", async () => {
+  api.defaults.adapter = async (config) => {
+    if (config.url === "/api/v1/bots/subscribed") return apiResponse(config, [liveBot]);
+    assert.equal(config.url, "/api/v1/bots");
+    return apiResponse(config, [{ ...liveBot, id: 74, name: "Catalog bot", isSubscribed: false, subscribedAt: null }]);
+  };
+  mount("/dashboard/bots", { routes: [{ path: "/dashboard/bots", element: h(ClientBotsPage) }] });
+  await screen.findByRole("heading", { name: liveBot.name });
+  await screen.findByRole("heading", { name: "Catalog bot" });
+  assert.equal(screen.getAllByRole("link", { name: "Open workspace" }).length, 1);
+  assert.equal(screen.getByRole("link", { name: "Open workspace" }).getAttribute("href"), buildBotWorkspacePath("73"));
+  assert.ok(screen.getByText("Subscription required"));
+});
+
+test("empty bot lists render empty states rather than obsolete backend blockers", async () => {
+  api.defaults.adapter = async (config) => apiResponse(config, []);
+  mount("/dashboard/bots", { routes: [{ path: "/dashboard/bots", element: h(ClientBotsPage) }] });
+  await screen.findByText("You have no subscribed bots.");
+  await screen.findByText("No bots are available.");
+  await waitFor(() => assert.equal(screen.queryByRole("status") === null, true));
 });

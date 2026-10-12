@@ -17,7 +17,7 @@ export default function ClientOverviewPage() {
           Your automation workspace
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Live account and bot data will connect after the API layer is introduced.
+          Open My bots to view your subscriptions and bot workspaces.
         </p>
       </div>
 
@@ -43,8 +43,7 @@ export default function ClientOverviewPage() {
         </div>
         <h2 className="mt-6 text-xl font-semibold">A focused view of every automation</h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-          Bot discovery and real operational metrics depend on backend capabilities scheduled for later parts.
-          This shell is ready for those integrations without restructuring.
+          Your subscribed bots are available in My bots. Summary metrics will appear here when their integrations are ready.
         </p>
       </section>
     </PageContainer>

@@ -125,24 +125,27 @@ const guardedRoutes = (realm = "user") => [{
 }, { path: "/login", element: h("p", null, "User login destination") },
 { path: "/admin/login", element: h("p", null, "Admin login destination") }]
 
-test("all six auth service methods use their documented endpoints and the central API", async () => {
+test("all eight auth service methods use their documented endpoints and the central API", async () => {
   const paths = []
   api.defaults.adapter = async (config) => {
     paths.push(config.url)
     assert.equal(config.withCredentials, true)
     assert.equal(config.headers.has("Authorization"), false)
+    assert.equal(config.method, config.url.endsWith("/me") ? "get" : "post")
     if (config.url.endsWith("/login")) assert.deepEqual(JSON.parse(config.data), credentials)
     else assert.equal(config.data, undefined)
     return response(config, envelope(config.url.endsWith("/logout") ? true : config.url.includes("/admin/") ? admin : user))
   }
   assert.deepEqual(await AuthService.loginUser(credentials), user)
+  assert.deepEqual(await AuthService.getUserMe(), user)
   assert.deepEqual(await AuthService.refreshUser(), user)
   await AuthService.logoutUser()
   assert.deepEqual(await AuthService.loginAdmin(credentials), admin)
+  assert.deepEqual(await AuthService.getAdminMe(), admin)
   // Explicit admin refresh stays admin even when the fallback pathname is /login.
   assert.deepEqual(await AuthService.refreshAdmin(), admin)
   await AuthService.logoutAdmin()
-  assert.deepEqual(paths, ["/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout", "/api/v1/admin/auth/login", "/api/v1/admin/auth/refresh", "/api/v1/admin/auth/logout"])
+  assert.deepEqual(paths, ["/api/v1/auth/login", "/api/v1/auth/me", "/api/v1/auth/refresh", "/api/v1/auth/logout", "/api/v1/admin/auth/login", "/api/v1/admin/auth/me", "/api/v1/admin/auth/refresh", "/api/v1/admin/auth/logout"])
 })
 
 test("invalid user/admin credentials show a normalized error without refresh", async () => {
@@ -179,12 +182,13 @@ test("concurrent refresh requests cannot silently join a different auth realm", 
   assert.equal(calls, 1)
 })
 
-test("dashboard cold reload hydrates identity and StrictMode rotates only once", async () => {
+test("dashboard cold reload restores identity through one GET /me without rotating tokens", async () => {
   const gate = deferred()
   let calls = 0
   api.defaults.adapter = async (config) => {
     calls += 1
-    assert.equal(config.url, "/api/v1/auth/refresh")
+    assert.equal(config.url, "/api/v1/auth/me")
+    assert.equal(config.method, "get")
     await gate.promise
     return response(config, envelope({ ...user, accessToken: "secret" }))
   }
@@ -198,12 +202,13 @@ test("dashboard cold reload hydrates identity and StrictMode rotates only once",
   assert.equal(refreshCoordinator.resolveRealm(), "user")
 })
 
-test("admin cold reload and admin login bootstrap use only the admin refresh endpoint", async () => {
+test("admin cold reload and admin login bootstrap use only GET admin /me", async () => {
   for (const pathname of ["/admin/users", "/admin/login"]) {
     let calls = 0
     api.defaults.adapter = async (config) => {
       calls += 1
-      assert.equal(config.url, "/api/v1/admin/auth/refresh")
+      assert.equal(config.url, "/api/v1/admin/auth/me")
+      assert.equal(config.method, "get")
       return response(config, envelope(admin))
     }
     mountProvider(pathname)
@@ -227,7 +232,7 @@ test("bootstrap failure leaves anonymous state and sends the proper realm login 
     await screen.findByText(realm === "user" ? "User login destination" : "Admin login destination")
     assert.equal(latestAuth.status, "anonymous")
     assert.equal(latestAuth.user, null)
-    assert.equal(paths.length, 1)
+    assert.deepEqual(paths, realm === "user" ? ["/api/v1/auth/me", "/api/v1/auth/refresh"] : ["/api/v1/admin/auth/me", "/api/v1/admin/auth/refresh"])
     assert.equal(mountedRouter.state.location.state.from, pathname)
     cleanup()
     mountedRouter.dispose()
@@ -281,7 +286,7 @@ test("single-session mismatch clears identity and redirects without a refresh lo
   const paths = []
   api.defaults.adapter = async (config) => {
     paths.push(config.url)
-    if (config.url.endsWith("refresh")) return response(config, envelope(user))
+    if (config.url.endsWith("/me")) return response(config, envelope(user))
     throw failure(config, 401, { message: "Your session has expired or ended because you logged in from another device." })
   }
   window.history.replaceState(null, "", "/dashboard")
@@ -292,7 +297,7 @@ test("single-session mismatch clears identity and redirects without a refresh lo
   await screen.findByText("User login destination")
   assert.equal(latestAuth.user, null)
   assert.equal(latestAuth.status, "anonymous")
-  assert.deepEqual(paths, ["/api/v1/auth/refresh", "/api/v1/connectedaccounts"])
+  assert.deepEqual(paths, ["/api/v1/auth/me", "/api/v1/connectedaccounts"])
 })
 
 test("logout waits for pending rotation and cannot be undone by stale refresh hydration", async () => {
@@ -357,13 +362,44 @@ test("new login waits for an older rotation before setting a new realm's cookies
   assert.deepEqual(paths, ["/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/admin/auth/login"])
 })
 
-test("a successful envelope with invalid refresh identity cannot authenticate the provider", async () => {
+test("a successful envelope with invalid /me identity cannot authenticate the provider", async () => {
   api.defaults.adapter = async (config) => response(config, envelope({ ...admin, role: "SystemAdmin" }))
   mountProvider("/admin/users")
   await waitFor(() => assert.equal(latestAuth.status, "anonymous"))
   assert.equal(latestAuth.user, null)
   assert.ok(refreshCoordinator.getExpiredError())
 })
+
+for (const realm of ["user", "admin"]) {
+  test(`${realm} login followed by reload restores identity through /me without refresh`, async () => {
+    const identity = realm === "user" ? user : admin
+    const base = realm === "user" ? "/api/v1/auth" : "/api/v1/admin/auth"
+    const paths = []
+    api.defaults.adapter = async (config) => { paths.push(config.url); return response(config, envelope(identity)) }
+    mountProvider()
+    await act(async () => { await (realm === "user" ? latestAuth.loginUser(credentials) : latestAuth.loginAdmin(credentials)) })
+    cleanup()
+    mountProvider(realm === "user" ? "/dashboard" : "/admin")
+    await waitFor(() => assert.equal(latestAuth.status, "authenticated"))
+    assert.deepEqual(latestAuth.user, identity)
+    assert.deepEqual(paths, [`${base}/login`, `${base}/me`])
+  })
+
+  test(`${realm} expired /me uses the existing interceptor to refresh once and replay GET /me`, async () => {
+    const identity = realm === "user" ? user : admin
+    const base = realm === "user" ? "/api/v1/auth" : "/api/v1/admin/auth"
+    const paths = []
+    api.defaults.adapter = async (config) => {
+      paths.push(config.url)
+      if (config.url.endsWith("/me") && !config._authRetry) throw failure(config)
+      return response(config, envelope(identity))
+    }
+    mountProvider(realm === "user" ? "/dashboard" : "/admin")
+    await waitFor(() => assert.equal(latestAuth.status, "authenticated"))
+    assert.deepEqual(paths, [`${base}/me`, `${base}/refresh`, `${base}/me`])
+    assert.deepEqual(latestAuth.user, identity)
+  })
+}
 
 test("auth guard waits for bootstrap and does not render protected content or redirect", () => {
   mountRouter(guardedRoutes(), "/dashboard", fakeAuth("bootstrapping"))
@@ -457,7 +493,7 @@ test("admin login form bootstraps then submits to the admin endpoint and enters 
   const paths = []
   api.defaults.adapter = async (config) => {
     paths.push(config.url)
-    if (config.url.endsWith("refresh")) throw failure(config)
+    if (config.url.endsWith("/me") || config.url.endsWith("refresh")) throw failure(config)
     return response(config, envelope(admin))
   }
   window.history.replaceState(null, "", "/admin/login")
@@ -469,7 +505,7 @@ test("admin login form bootstraps then submits to the admin endpoint and enters 
   await input.type(screen.getByLabelText("Password"), credentials.password)
   await input.click(screen.getByRole("button", { name: "Continue to admin" }))
   await screen.findByText("Admin home")
-  assert.deepEqual(paths, ["/api/v1/admin/auth/refresh", "/api/v1/admin/auth/login"])
+  assert.deepEqual(paths, ["/api/v1/admin/auth/me", "/api/v1/admin/auth/refresh", "/api/v1/admin/auth/login"])
 })
 
 test("post-login destinations reject external URLs, wrong realms, path lookalikes and login loops", () => {

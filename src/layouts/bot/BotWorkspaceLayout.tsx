@@ -19,7 +19,7 @@ export default function BotWorkspaceLayout({ registry }: { registry?: BotModules
   const workspaceTitle = descriptor?.name ?? (botId ? `Bot ${botId}` : "Bot workspace")
 
   // Children receive context only after both data retrieval and module lookup
-  // succeed. Blocked or unsupported workspaces never render a module page.
+  // succeed. Missing or unsupported workspaces never render a module page.
   const context: BotWorkspaceContextValue | null = descriptor && resolved.status === "ready"
     ? { descriptor, module: resolved.module }
     : null
@@ -42,7 +42,7 @@ export default function BotWorkspaceLayout({ registry }: { registry?: BotModules
           {resolved.status === "unsupported" ? (
             <UnsupportedBotModule error={resolved.error} />
           ) : (
-            <BotWorkspaceState state={workspace.status === "not-found" ? "not-found" : "blocked"} />
+            <BotWorkspaceState state="not-found" />
           )}
         </PageContainer>
       )}

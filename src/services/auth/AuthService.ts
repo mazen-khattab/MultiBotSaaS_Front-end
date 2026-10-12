@@ -19,11 +19,19 @@ const logout = async (realm: AuthRealm): Promise<void> => {
 
 const refresh = async (realm: AuthRealm) => readAuthIdentity(await refreshSession(realm), realm)
 
+/** Restore identity without rotating cookies; genuine 401s use the interceptor. */
+const getMe = async (realm: AuthRealm) => {
+  const response = await api.get<unknown>(authEndpoints[realm].me)
+  return readAuthIdentity(response.data, realm)
+}
+
 export const AuthService = {
   loginUser: (credentials: LoginRequest) => login("user", credentials),
   logoutUser: () => logout("user"),
   refreshUser: () => refresh("user"),
+  getUserMe: () => getMe("user"),
   loginAdmin: (credentials: LoginRequest) => login("admin", credentials),
   logoutAdmin: () => logout("admin"),
   refreshAdmin: () => refresh("admin"),
+  getAdminMe: () => getMe("admin"),
 }
