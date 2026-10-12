@@ -15,7 +15,11 @@ const createDomainKeys = <T extends string>(domain: T) => {
     lists,
     list: (filters: QueryKeyFilters = {}) => [...lists(), filters] as const,
     details,
-    detail: (id: string | number) => [...details(), id] as const,
+    // Existing callers select by ID. Workspace accounts can additionally scope
+    // the key by bot while the ID-only key remains a useful invalidation prefix.
+    detail: (idOrBotId: string | number, id?: string | number) => id === undefined
+      ? [...details(), idOrBotId] as const
+      : [...details(), id, idOrBotId] as const,
   }
 }
 

@@ -449,8 +449,10 @@ The frontend Bot Registry dynamically mounts UI workspaces based on `uiModuleCod
   ```json
   {
     "displayName": "Facebook Account Renamed",
+    "platform": "Facebook",
     "cookiesPayload": "[{\"name\":\"c_user\",\"value\":\"1000...\"}]",
-    "isActive": true
+    "status": "Active",
+    "isActive": true,
   }
   ```
 

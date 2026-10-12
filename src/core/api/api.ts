@@ -37,7 +37,6 @@ export const refreshSession = (realm?: AuthRealm) => refreshCoordinator.refresh(
 }, realm)
 
 api.interceptors.request.use((config: AuthRequestConfig) => {
-  console.log("request attempt")
   config.withCredentials = true
   config.headers.delete("Authorization")
   config.auth = undefined
@@ -48,7 +47,7 @@ api.interceptors.request.use((config: AuthRequestConfig) => {
 api.interceptors.response.use(
   (response) => response,
   async (rawError: unknown) => {
-    console.log("response error", rawError)
+    // Transport errors can contain credentials in config.data. Never log them.
     const error = normalizeApiError(rawError)
     if (!axios.isAxiosError<unknown>(rawError) || rawError.response?.status !== HTTP_STATUS.UNAUTHORIZED) {
       throw error
