@@ -16,17 +16,37 @@ export interface RunCreationContext {
 /** Feature adapters must resolve selections from their own account/group data. */
 export interface RunSelection {
   readonly connectedAccountId: number
-  // Neither account list nor detail currently exposes status. Unknown status
-  // must stay unknown; isActive is not evidence of the required Active status.
-  readonly accountStatus: string | null
   readonly targetGroupId?: number | null
 }
 
-/** These literals prevent configuration from promising unsupported actions. */
+/** Retry stays unavailable until the backend defines its business semantics. */
 export interface RunsCapabilities {
   readonly canCreateRun: boolean
-  readonly canListRuns: false
-  readonly canGetRun: false
-  readonly canCancelRun: false
+  readonly canListRuns: boolean
+  readonly canGetRun: boolean
+  readonly canCancelRun: boolean
   readonly canRetryRun: false
+}
+
+/** Exact serialized run states, including the backend's final cancellation state. */
+export const RUN_STATUSES = ["Pending", "Running", "Completed", "Failed", "Cancelled"] as const
+export type RunStatus = typeof RUN_STATUSES[number]
+
+export interface RunDto {
+  readonly id: number
+  readonly botId: number | null
+  readonly groupId: number | null
+  readonly accountId: number | null
+  readonly collectedLeadsCount: number
+  readonly infoJson: string
+  readonly startedAt: string
+  readonly endedAt: string | null
+  readonly status: RunStatus
+}
+
+export interface RunsListParams {
+  readonly botId?: number
+  readonly pageNumber?: number
+  readonly pageSize?: number
+  readonly statusFilter?: RunStatus
 }

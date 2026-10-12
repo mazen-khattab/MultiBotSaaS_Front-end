@@ -4,6 +4,7 @@ import type { FieldValues } from "react-hook-form"
 import { normalizeApiError } from "@/core/api/apiError"
 import { createRunAdapter } from "@/features/runs/adapters/createRunAdapter"
 import { useCreateRun } from "@/features/runs/hooks/useCreateRun"
+import type { ConnectedAccountDto } from "@/features/runs/services/EligibleAccountsService"
 import type { StartRunConfig } from "@/registry/configs/runsConfig.types"
 import { DynamicModal } from "@/shared/components/dynamic-form/DynamicModal"
 import type { DynamicFormSubmitResult, DynamicSelectOptions } from "@/shared/components/dynamic-form/dynamicForm.types"
@@ -12,6 +13,7 @@ interface StartRunModalProps<TInput extends FieldValues, TOutput extends FieldVa
   readonly botId: string
   readonly config: StartRunConfig<TInput, TOutput>
   readonly options?: DynamicSelectOptions
+  readonly eligibleAccounts: readonly ConnectedAccountDto[]
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
   readonly onCreated?: (runId: number) => void
@@ -37,14 +39,14 @@ function getFailureMessage(error: unknown): string {
 
 /** Reuse shared validation, duplicate-submit protection, and modal lifecycle. */
 export function StartRunModal<TInput extends FieldValues, TOutput extends FieldValues = TInput>({
-  botId, config, options, open, onOpenChange, onCreated, disabled = false,
+  botId, config, options, eligibleAccounts, open, onOpenChange, onCreated, disabled = false,
 }: StartRunModalProps<TInput, TOutput>) {
   const mutation = useCreateRun()
   const createdId = useRef<number | undefined>(undefined)
   async function submit(values: TOutput): Promise<DynamicFormSubmitResult> {
     createdId.current = undefined
     try {
-      const dto = await createRunAdapter(botId, values, config)
+      const dto = await createRunAdapter(botId, values, config, eligibleAccounts)
       createdId.current = await mutation.mutateAsync(dto)
       return { status: "success" }
     } catch (error: unknown) {

@@ -18,7 +18,7 @@ export default function BotTabRoutePage() {
   const workspace = useOutletContext<BotWorkspaceContextValue | undefined>()
 
   if (!workspace) {
-    return <PageContainer><BotWorkspaceState state="blocked" /></PageContainer>
+    return <PageContainer><BotWorkspaceState state="not-found" /></PageContainer>
   }
 
   // Check membership before invoking a resolver that might otherwise provide

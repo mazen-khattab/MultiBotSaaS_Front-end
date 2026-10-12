@@ -86,10 +86,17 @@ test("explicitly registered prototype-like strings are still exact module keys",
   assert.equal(resolveBotModule("__proto__", registry), explicitDefinition)
 })
 
-test("the production registry remains empty and immutable after isolated resolution", () => {
+test("the production registry contains only exact backend codes and remains immutable", () => {
   const { definition, registry } = fixture()
   resolveBotModule(definition.uiModuleCode, registry)
-  assert.deepEqual(Object.keys(botModulesRegistry), [])
+  assert.deepEqual(Object.keys(botModulesRegistry), ["FB-MEMBERS-SCRAPER", "FB-POSTS-SCRAPER", "FB-MEMBERS-MESSAGES-SCRAPER"])
+  for (const code of Object.keys(botModulesRegistry)) {
+    const module = resolveBotModule(code)
+    assert.equal(module.uiModuleCode, code)
+    assert.deepEqual(module.sidebarTabs.map((tab) => tab.slug), ["runs"])
+    assert.equal(module.sidebarTabs[0].config.capabilities.canRetryRun, false)
+  }
+  assert.ok(resolveBotModule("FB_LEADS_GEN") instanceof UnsupportedBotModuleError)
   assert.equal(Object.isFrozen(botModulesRegistry), true)
   assert.throws(() => { botModulesRegistry[definition.uiModuleCode] = definition }, TypeError)
   assert.ok(resolveBotModule(definition.uiModuleCode) instanceof UnsupportedBotModuleError)

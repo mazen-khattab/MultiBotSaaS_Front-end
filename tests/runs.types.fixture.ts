@@ -8,31 +8,31 @@ import type { RunsPageConfig } from "@/registry/configs/runsConfig.types"
 const schema = z.object({ account: z.string().transform(Number), term: z.string() })
 type Input = z.input<typeof schema>
 type Output = z.output<typeof schema>
-type Row = { id: number; label: string }
 
 // Compile a test-only module with parsed numeric selections and typed columns.
 export const config = {
   title: "Typed test runs",
   capabilities: { canCreateRun: true, canListRuns: false, canGetRun: false, canCancelRun: false, canRetryRun: false },
-  table: { caption: "Run history", columns: [{ key: "label", header: "Label", accessorKey: "label", cell: (row) => row.label }] },
+  table: { caption: "Run history", columns: [{ key: "status", header: "Status", accessorKey: "status", cell: (row) => row.status }] },
   startRun: {
     form: { schema, fields: [{ name: "account", label: "Account", type: "select", optionsProvider: "accounts" }] },
-    resolveSelection: (values) => ({ connectedAccountId: values.account, accountStatus: "Active" }),
+    accountOptionsProvider: "accounts",
+    resolveSelection: (values) => ({ connectedAccountId: values.account }),
     serializeInfoJson: (values) => JSON.stringify({ term: values.term }),
   },
-} satisfies RunsPageConfig<Input, Output, Row>
+} satisfies RunsPageConfig<Input, Output>
 
 /** The module wrapper binds its own config while satisfying existing routing. */
 function TestModuleRuns({ botId }: BotTabComponentProps) {
-  return createElement(GenericRunsPage<Input, Output, Row>, { botId, config })
+  return createElement(GenericRunsPage<Input, Output>, { botId, config })
 }
 
 export const component: BotTabDefinition["component"] = lazy(async () => ({ default: TestModuleRuns }))
 export const registryConfig: BotTabDefinition["config"] = config
 
-// @ts-expect-error No list endpoint exists, so a module cannot enable history.
-export const invalidHistory: RunsPageConfig<Input, Output, Row>["capabilities"]["canListRuns"] = true
+// @ts-expect-error Retry semantics are undefined; a module cannot enable retry.
+export const invalidRetry: RunsPageConfig<Input, Output>["capabilities"]["canRetryRun"] = true
 // @ts-expect-error Serializers must return opaque strings, not metadata objects.
-export const invalidSerializer: NonNullable<RunsPageConfig<Input, Output, Row>["startRun"]>["serializeInfoJson"] = () => ({ term: "test" })
+export const invalidSerializer: NonNullable<RunsPageConfig<Input, Output>["startRun"]>["serializeInfoJson"] = () => ({ term: "test" })
 // @ts-expect-error Parsed account values are numeric, not strings from the UI.
-export const invalidSelection: NonNullable<RunsPageConfig<Input, Output, Row>["startRun"]>["resolveSelection"] = (values) => ({ connectedAccountId: values.account.toUpperCase(), accountStatus: "Active" })
+export const invalidSelection: NonNullable<RunsPageConfig<Input, Output>["startRun"]>["resolveSelection"] = (values) => ({ connectedAccountId: values.account.toUpperCase() })

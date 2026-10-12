@@ -1,36 +1,24 @@
 # Bot registry foundation (Part 10)
 
-`src/registry/botModulesRegistry.ts` is the immutable source of frontend UI
-composition, keyed by exact `UiModuleCode` strings. It contains no bot IDs,
-subscriptions, API calls, or React state. It is deliberately empty: the backend
-contract in `docs/FRONTEND_BACKEND_CONTRACT.md`, section 6.2, defines neither
-exposed bot descriptors nor confirmed module code values. Module definitions
-belong in `src/registry/definitions/` when later parts introduce them.
+The immutable botModulesRegistry composes UI by exact backend uiModuleCode values:
+FB-MEMBERS-SCRAPER, FB-POSTS-SCRAPER, and FB-MEMBERS-MESSAGES-SCRAPER.
+It contains no bot IDs, subscriptions, API calls, or React state. Each definition
+registers the existing generic Runs tab and its readonly config. Bot-specific
+forms, connected account management, groups, leads, and messaging remain deferred.
 
-`BotModuleDefinition` describes optional display metadata, ordered sidebar tabs,
-a component resolver, optional UI requirements, and named page configs. Each tab
-has a slug, label, Lucide icon, lazy React component, and optional readonly config.
-Pages receive a workspace `botId` and optional config; config values use `unknown`
-until the consuming page narrows them. Sidebar array order determines tab order.
-Permission and capability metadata does not establish subscription ownership or
-grant authorization.
+BotModuleDefinition retains display metadata, ordered sidebar tabs, a lazy
+component resolver, optional UI requirements, and named page configs. Permission
+and capability metadata never proves ownership or grants authorization.
 
-`resolveBotModule(uiModuleCode)` returns the registered `BotModuleDefinition`
-directly or an `UnsupportedBotModuleError`. It returns the error rather than
-throwing it. Callers can narrow the result with
-`result instanceof UnsupportedBotModuleError` and inspect `kind`, `uiModuleCode`,
-and `message`. The lookup is exact, considers only own registry entries, and does
-not normalize codes, infer them from names/IDs, load pages, or fall back to another
-module. The optional registry argument allows isolated tests without adding
-production mock definitions.
+resolveBotModule returns the matching definition or UnsupportedBotModuleError.
+Lookup is exact, own-key-only, and never normalizes codes or infers a module from
+IDs/names. It does not load pages or fall back to another module. Test-only
+registries can still be injected without modifying production definitions.
 
-Runtime bot API integration remains deferred until the contract exposes
-subscribed bots, a bot descriptor by ID, and `UiModuleCode`. Workspace layout and
-dynamic tab routing now consume the registry through the Part 11 loader/context
-boundary; see `docs/bot-workspace.md` for its blocked production state and the
-adapter interface.
+Runtime retrieval now uses real Bot APIs from FRONTEND_BACKEND_CONTRACT_V2.md.
+The workspace loader requests owned BotDto data and forwards its module code to
+the registry. See bot-workspace.md. Unknown future codes retain the unsupported
+module state, even when the user owns their bot.
 
-Validate with `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build`.
-Registry tests exercise registered/unsupported lookups, exact key handling,
-prototype collisions, lazy page preservation, and registry immutability with
-test-only definitions.
+Validate with type-check, lint, tests, and production build. Registry tests cover
+exact codes, unknown codes, prototype collisions, lazy references, and immutability.

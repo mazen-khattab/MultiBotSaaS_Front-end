@@ -65,14 +65,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const realm = bootstrapRealm.current;
     if (realm) {
-      // Retain the Promise through StrictMode's effect replay to rotate once.
+      // StrictMode shares one identity request. /me does not rotate cookies;
+      // expired access cookies still recover through the existing interceptor.
       if (!bootstrapPromise.current) {
         action.current = "bootstrap";
         bootstrapVersion.current = actionVersion.current;
         bootstrapPromise.current =
           realm === "admin"
-            ? AuthService.refreshAdmin()
-            : AuthService.refreshUser();
+            ? AuthService.getAdminMe()
+            : AuthService.getUserMe();
       }
       void bootstrapPromise.current
         .then((user) => {
@@ -102,13 +103,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await refreshCoordinator.getPendingRefresh()?.catch(() => undefined);
       const version = ++actionVersion.current;
       action.current = "login";
-      console.log(
-        "login attempt",
-        realm,
-        credentials,
-        version,
-        actionVersion.current,
-      );
       try {
         const user = await (realm === "admin"
           ? AuthService.loginAdmin(credentials)
@@ -151,7 +145,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refresh = useCallback(() => {
-    console.log("refresh attempt", refreshCoordinator.resolveRealm());
     return refreshCoordinator.resolveRealm() === "admin"
       ? AuthService.refreshAdmin()
       : AuthService.refreshUser();

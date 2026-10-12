@@ -56,9 +56,9 @@ optional feature-owned React node.
 Under the current backend contract, Leads support only `pageNumber`, `pageSize`,
 and `statusFilter`. A Leads feature can declare a status column filter with the
 documented options and map its callback to `statusFilter`. It must omit sorting
-and search. Accounts and groups return complete lists; run history remains
-unavailable pending a backend read contract. Those feature integrations are
-outside Part 12.
+and search. Accounts and groups return complete lists. Runs now use `botId`,
+`pageNumber`, `pageSize`, and `statusFilter` with server totals from the V2 contract.
+The Runs integration adds no unsupported sorting or search parameters.
 
 Verification: `npm run typecheck`, `npm run lint`, `npm test`, and
 `npm run build`. `tests/data-table.test.mjs` exercises the production table with

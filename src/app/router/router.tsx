@@ -61,7 +61,7 @@ export const appRoutes: RouteObject[] = [
               },
               {
                 path: routePaths.botWorkspacePattern,
-                // The boundary reports blocked data until a real adapter exists.
+                // Fetch owned BotDto data before resolving its exact module code.
                 loader: botWorkspaceLoader,
                 lazy: lazyPage(() => import("@/layouts/bot/BotWorkspaceLayout")),
                 children: [
