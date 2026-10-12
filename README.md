@@ -1,27 +1,38 @@
 # MultiBotSaaS Front-end
 
-Welcome to the MultiBotSaaS Front-end repository! This project serves as the client-facing and administrative interface for our Multi-Bot Software as a Service (SaaS) platform, allowing users to manage multiple bots and administrators to oversee the platform ecosystem.
+Welcome to the **MultiBotSaaS Front-end** repository! This project serves as the modern client-facing and administrative interface for our Multi-Bot Software as a Service (SaaS) platform, enabling users to configure and interact with multiple bot modules and administrators to oversee the ecosystem.
+
+---
 
 ## 🚀 Tech Stack
 
-This project is built using modern web development technologies to ensure performance, type safety, and a great developer experience:
+This project is built using modern web technologies to ensure peak performance, type safety, and an exceptional developer experience:
 
-- **Framework**: [React 18](https://react.dev/)
-- **Build Tool**: [Vite](https://vitejs.dev/)
-- **Language**: [TypeScript](https://www.typescriptlang.org/)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **UI Components**: [shadcn/ui](https://ui.shadcn.com/) (Radix UI)
-- **Routing**: Client-side routing mapped to feature-based modules
+- **Framework**: [React 19](https://react.dev/)
+- **Build Tool**: [Vite 8](https://vitejs.dev/) with `@tailwindcss/vite`
+- **Language**: [TypeScript](https://www.typescriptlang.org/) (Strict mode)
+- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
+- **UI Primitives**: [Radix UI](https://www.radix-ui.com/) & shadcn/ui design patterns
+- **Routing**: [React Router v7](https://reactrouter.com/)
+- **Server State & Data Fetching**: [TanStack Query v5](https://tanstack.com/query/latest)
+- **Data Tables**: [TanStack Table v9](https://tanstack.com/table/latest)
+- **Forms & Validation**: [React Hook Form](https://react-hook-form.com/) & [Zod](https://zod.dev/)
+- **Icons**: [Lucide React](https://lucide.dev/)
+
+---
 
 ## 📦 Prerequisites
 
-Before getting started, ensure you have the following installed on your machine:
-- Node.js (v18 or higher recommended)
-- npm, yarn, or pnpm
+Before getting started, make sure your local environment meets these requirements:
+
+- **Node.js**: `>= 22.12.0` (strictly required by `package.json` engines)
+- **Package Manager**: npm (`>= 11.9.0`), yarn, or pnpm
+
+---
 
 ## 🛠️ Getting Started
 
-### 1. Clone the repository
+### 1. Clone the Repository
 ```bash
 git clone <your-repository-url>
 cd MultiBotSaaS_Front-end
@@ -30,45 +41,61 @@ cd MultiBotSaaS_Front-end
 ### 2. Install Dependencies
 ```bash
 npm install
-# or
-yarn install
-# or
-pnpm install
 ```
 
 ### 3. Environment Variables
-Copy the example environment file and update it with your local configurations:
+Copy the template file to set up your environment variables:
 ```bash
 cp .env.example .env
 ```
+Ensure required environment values (such as API base URLs) are properly filled in.
 
 ### 4. Start the Development Server
 ```bash
 npm run dev
-# or
-yarn dev
 ```
-The application will be available at `http://localhost:5173`.
+The application will run locally at `http://localhost:5173`.
+
+---
 
 ## 📁 Project Structure
 
-This project follows a scalable, domain-driven structure loosely based on Feature-Sliced Design.
+The project follows a scalable, domain-driven structure loosely inspired by Feature-Sliced Design:
 
-For a comprehensive breakdown of all directories and files in this repository, please refer to the [Project Structure Documentation](./project_structure.md).
+```text
+src/
+├── app/          # App initialization, root providers, router configuration
+├── context/      # Shared React contexts (Auth, Theme, etc.)
+├── core/         # Global configurations, environment parsing, and app constants
+├── features/     # Domain-encapsulated features (admin, auth, bots, client)
+├── layouts/      # Shell and layout wrapper components for different application views
+├── pages/        # Route page entry points mapped to application routes
+├── registry/     # Extensible bot modules registry and declarative configs (forms, tables)
+├── services/     # Shared API clients, Axios instances, and global endpoints
+├── shared/       # Reusable UI components (shadcn/radix), custom hooks, dynamic forms, and utils
+└── styles/       # Global CSS styles, Tailwind configuration, and themes
+```
 
-### High-level Overview:
-- `src/app/`: Core application initialization, routing, and providers.
-- `src/core/`: Application-wide configurations and constants.
-- `src/features/`: Domain-specific encapsulated modules (`admin`, `auth`, `bots`, `client`).
-- `src/layouts/`: Structural wrapper components for different contextual views.
-- `src/shared/`: Reusable, generic UI components (like shadcn), hooks, and utilities.
+For an exhaustive breakdown of every directory and file, see the [Project Structure Documentation](./project_structure.md).
+
+---
 
 ## 📜 Available Scripts
 
-- `npm run dev` - Starts the Vite development server.
-- `npm run build` - Builds the application for production.
-- `npm run lint` - Runs ESLint to catch formatting and code quality issues.
-- `npm run preview` - Locally preview the production build.
+| Script | Description |
+| :--- | :--- |
+| `npm run dev` | Starts the Vite development server with Hot Module Replacement (HMR). |
+| `npm run build` | Compiles TypeScript types and builds the production bundles. |
+| `npm run lint` | Runs ESLint to check for code quality and syntax issues. |
+| `npm run typecheck` | Validates TypeScript types across the codebase without emitting files. |
+| `npm run test` | Runs the automated test suite using the native Node.js test runner. |
+| `npm run preview` | Locally serves the production build for testing. |
+
+---
 
 ## 🤝 Contributing
-When contributing to this repository, please ensure that your code adheres to the project's ESLint rules and TypeScript strict typings. Ensure you place domain-specific code inside the respective `src/features/` folder.
+
+When contributing to this repository:
+1. Ensure your code satisfies `npm run lint` and `npm run typecheck`.
+2. Keep domain-specific UI and logic encapsulated within `src/features/` or `src/registry/`.
+3. Use the dynamic form/table configs (`src/registry/configs/`) when registering bot module views.
