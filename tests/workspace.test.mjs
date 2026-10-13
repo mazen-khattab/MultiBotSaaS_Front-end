@@ -342,6 +342,18 @@ test("real connected-accounts route loads the current bot's account list", async
   assert.equal(screen.getByRole("link", { name: "Connected accounts" }).getAttribute("aria-current"), "page");
 });
 
+test("real groups route loads an unfiltered user-wide list", async () => {
+  api.defaults.adapter = async (config) => {
+    if (config.url === `/api/v1/bots/${liveBot.id}`) return apiResponse(config, liveBot);
+    assert.equal(config.url, "/api/v1/targetgroups");
+    assert.equal(config.params, undefined);
+    return apiResponse(config, [{ id: 5, groupName: "Workspace group", groupUrl: "https://example.test/group", isActive: true }]);
+  };
+  mount(buildBotTabPath(String(liveBot.id), "groups"), { routes: appRoutes });
+  await screen.findByText("Workspace group", {}, { timeout: 5000 });
+  assert.equal(screen.getByRole("link", { name: "Target groups" }).getAttribute("aria-current"), "page");
+});
+
 test("sidebar preserves registry order, encodes links, and opens only the selected tab", async () => {
   const data = fixture();
   const special = { ...descriptor, botId: "test /?#" };
