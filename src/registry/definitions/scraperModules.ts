@@ -1,4 +1,4 @@
-import { History, UsersRound } from "lucide-react"
+import { History, Target, UsersRound } from "lucide-react"
 import { lazy } from "react"
 
 import type { BotModuleDefinition } from "@/registry/botRegistry.types"
@@ -24,13 +24,15 @@ export const scraperRunsConfig: RunsPageConfig<Record<string, unknown>> = Object
 
 const RunsPage = lazy(() => import("@/features/runs/pages/RegisteredRunsPage"))
 const ConnectedAccountsPage = lazy(() => import("@/features/connected-accounts/pages/ConnectedAccountsPage"))
+const GroupsPage = lazy(() => import("@/features/groups/pages/GroupsPage"))
 
 /** These exact values are defined by the backend, independently of bot IDs. */
 export function defineScraperModule(uiModuleCode: string): BotModuleDefinition {
-  // Account management is shared; botId is used only when creating an account.
+  // Management tabs keep their own read scope; groups use botId only on create.
   const tabs = Object.freeze([
     Object.freeze({ slug: "runs", label: "Runs", icon: History, component: RunsPage, config: scraperRunsConfig }),
     Object.freeze({ slug: "connected-accounts", label: "Connected accounts", icon: UsersRound, component: ConnectedAccountsPage }),
+    Object.freeze({ slug: "groups", label: "Target groups", icon: Target, component: GroupsPage }),
   ])
   return Object.freeze({ uiModuleCode, sidebarTabs: tabs, pageConfigs: Object.freeze({ runs: scraperRunsConfig }),
     resolveComponent: (slug: string) => tabs.find((tab) => tab.slug === slug)?.component })
