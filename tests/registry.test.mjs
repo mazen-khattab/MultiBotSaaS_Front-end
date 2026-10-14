@@ -6,6 +6,7 @@ import { lazy } from "react"
 import { createServer } from "vite"
 
 let server, botModulesRegistry, resolveBotModule, UnsupportedBotModuleError, defineLeadsScraperModule, scraperRunsConfig
+let postScraperModule, postScraperRunsConfig, postScraperRunSchema, postScraperRunAdapter
 
 before(async () => {
   // Load the real resolver through the same aliases as the application. Test
@@ -20,6 +21,9 @@ before(async () => {
   ;({ UnsupportedBotModuleError } = await server.ssrLoadModule("/src/registry/botRegistry.errors.ts"))
   ;({ defineLeadsScraperModule } = await server.ssrLoadModule("/src/registry/definitions/leadsScraper.shared.ts"))
   ;({ scraperRunsConfig } = await server.ssrLoadModule("/src/registry/definitions/scraperModules.ts"))
+  ;({ postScraperModule, postScraperRunsConfig } = await server.ssrLoadModule("/src/features/bot-modules/post-scraper/postScraper.module.ts"))
+  ;({ postScraperRunSchema } = await server.ssrLoadModule("/src/features/bot-modules/post-scraper/postScraperRunSchema.ts"))
+  ;({ postScraperRunAdapter } = await server.ssrLoadModule("/src/features/bot-modules/post-scraper/postScraperRunAdapter.ts"))
 })
 
 after(async () => { await server?.close() })
@@ -134,4 +138,30 @@ test("shared composition omits unsupported tabs and direct resolution for every 
       }
     }
   }
+})
+
+test("only the documented post scraper code selects its specialized run config", () => {
+  assert.equal(resolveBotModule("FB-POSTS-SCRAPER"), postScraperModule)
+  assert.equal(postScraperModule.pageConfigs.runs, postScraperRunsConfig)
+  assert.equal(postScraperModule.sidebarTabs.find((tab) => tab.slug === "runs").config, postScraperRunsConfig)
+  assert.equal(resolveBotModule("FB-MEMBERS-SCRAPER").pageConfigs.runs, scraperRunsConfig)
+  assert.equal(resolveBotModule("FB-MEMBERS-MESSAGES-SCRAPER").pageConfigs.runs, scraperRunsConfig)
+  assert.ok(resolveBotModule("FB_POST_SCRAPER") instanceof UnsupportedBotModuleError)
+  assert.equal(postScraperRunsConfig.capabilities.canListRuns, true)
+  assert.equal(postScraperRunsConfig.capabilities.canGetRun, true)
+  assert.equal(postScraperRunsConfig.capabilities.canCancelRun, true)
+  assert.equal(postScraperRunsConfig.capabilities.canCreateRun, false)
+  assert.equal(postScraperRunsConfig.startRun, undefined)
+})
+
+test("post scraper schema and adapter remain explicitly blocked without a payload fallback", () => {
+  assert.equal(postScraperRunSchema.status, "blocked")
+  assert.match(postScraperRunSchema.reason, /infoJson field schema and version policy/)
+  assert.equal(postScraperRunAdapter.status, "blocked")
+  assert.equal("adapter" in postScraperRunAdapter, false)
+  assert.equal("serializeInfoJson" in postScraperRunAdapter, false)
+  assert.equal("extractInfoJson" in postScraperRunAdapter, false)
+  assert.equal(Object.isFrozen(postScraperRunSchema), true)
+  assert.equal(Object.isFrozen(postScraperRunAdapter), true)
+  assert.equal(Object.isFrozen(postScraperRunsConfig.table.columns), true)
 })

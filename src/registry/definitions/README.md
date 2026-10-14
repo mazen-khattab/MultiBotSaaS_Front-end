@@ -5,9 +5,10 @@ pages. `defineLeadsScraperModule` builds a definition; it does not register it,
 fetch data, infer a platform, or grant access. The registry still selects exact
 `BotDto.uiModuleCode` values returned by the backend.
 
-`scraperModules.ts` preserves the current production composition and tab order
-for `FB-MEMBERS-SCRAPER`, `FB-POSTS-SCRAPER`, and
-`FB-MEMBERS-MESSAGES-SCRAPER`. These remain the only production registrations.
+`scraperModules.ts` preserves the family composition and tab order for the
+members and members-messages modules. Part 19 registers the specialized
+`features/bot-modules/post-scraper/postScraper.module.ts` for `FB-POSTS-SCRAPER`
+through the same shared factory. These remain the only three production registrations.
 `FB_LEADS_GEN` and `FB_POST_SCRAPER` are unsupported illustrative names. Unknown
 backend codes continue to show the existing unsupported-module state.
 
@@ -34,7 +35,8 @@ Schemas, platform metadata, or backend payload fields are not inferred here.
 These flags describe frontend implementation. Backend subscription, ownership,
 account eligibility, and authorization checks remain authoritative. All current
 modules retain their established pages, including the Part 17 messaging flow.
-Platform specialization is deferred to the relevant later part.
+Post Scraper owns its DTO-based run columns and explicitly blocked metadata
+boundary in its module folder; other specializations remain deferred.
 
 ## Integration and unavailable actions
 

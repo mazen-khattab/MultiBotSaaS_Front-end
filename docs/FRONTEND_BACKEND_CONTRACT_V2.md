@@ -10,7 +10,7 @@
 ## 1. API General Configuration
 
 ### 1.1 Base URL & Environment Configuration
-- **Development Base URL:** `http://localhost:5000` (or `https://localhost:5001`)
+- **Development Base URL:** `https://localhost:7062` with the existing `https` launch profile; `http://localhost:5037` is also exposed but cookie authentication requires the HTTPS API URL.
 - **Vite Local Dev Server Origin:** `http://localhost:5173`
 - **Global Route Prefix:** `/api/v1/` for standard controllers
 - **SignalR Hub Route:** `/hubs/notifications`
@@ -27,21 +27,22 @@
 - The frontend must **not** set manual `Authorization: Bearer <token>` headers; the browser automatically attaches HTTP-only cookies on every request when `withCredentials: true` is configured.
 
 ### 1.4 CORS Configuration
-The backend defines the `FrontendPolicy` in `Program.cs`:
-- **Allowed Origins:**
-  - `http://localhost:5173` (Vite dev server)
-  - `http://localhost:3000` (Alternative local frontend)
-  - Configured n8n cloud webhook origins
+The backend configures `FrontendPolicy` from the `Cors:AllowedOrigins` array at startup:
+- **Development Defaults:** `http://localhost:5173` (Vite) and `http://localhost:3000` (alternative local frontend), supplied only by `appsettings.Development.json`.
+- **Staging/Production:** Configure explicit HTTPS frontend origins through environment-specific settings or indexed environment variables, for example `Cors__AllowedOrigins__0=https://app.example.com`. The shared configuration contains no frontend origin; missing/invalid configuration stops startup.
+- Origins contain only scheme, host, and optional port. They are normalized and validated; wildcard origins, credentials, paths, query strings and fragments are rejected. HTTP origins are accepted only in Development.
 - **Allowed Headers:** Any (`AllowAnyHeader()`)
 - **Allowed Methods:** Any (`AllowAnyMethod()`)
 - **Credentials:** Allowed (`AllowCredentials()`)
+- Worker/webhook authentication remains independent. n8n URLs are not browser CORS defaults. See section 15 for deployment configuration.
 
 ### 1.5 Cookie Security Flags (Dev & Production)
 Cookies are generated via `TokenService`:
 - `HttpOnly`: `true` (always)
-- `Secure`: `true` (enables cross-site cookie transmission)
-- `SameSite`: `SameSiteMode.None` (enables cross-origin requests between Vite on `localhost:5173` and API on `localhost:5000`)
-- `Path`: `/`
+- `Secure`: `true` (send cookies to the HTTPS API URL, including local development)
+- `SameSite`: `SameSiteMode.None` (permits cross-site cookie use, subject to browser cookie policy; requires `Secure`)
+- `Path`: explicitly `/` for creation and deletion
+- `Domain`: unset; cookies remain host-only on the API host. Keep `withCredentials: true` on frontend requests.
 
 ### 1.6 Standard & Custom Headers
 | Header | Usage | Required By |
@@ -361,6 +362,14 @@ The frontend Bot Registry dynamically mounts UI workspaces based on `uiModuleCod
 | `FbMembersMessagesScraper` | `FB-MEMBERS-MESSAGES-SCRAPER` | Dispatches automated direct messages to collected leads |
 
 Admin-created codes are trimmed and converted to uppercase, contain 1 to 50 letters/numbers in segments separated by single hyphens, and are unique and immutable through the management API. A new bot starts inactive; add its React registry/module support and deploy the frontend before explicitly activating it. See section 13 for admin endpoints and DTOs.
+
+### 6.4 RAG Customer Service — Current Backend Boundary
+
+- The current backend source contains no RAG-specific knowledge-base entities/controllers, document-upload API, indexing-status API, conversations/messages API, prompt-settings API, or playground-chat API. Part 20 therefore remains limited to architecture/page shells with no RAG network calls.
+- Generic bot catalog and admin bot management APIs exist, but creating or returning a bot/module code does not implement these RAG capabilities.
+- No dedicated RAG runtime code is confirmed by the repository's `UiModuleCodes` constants or an implemented RAG API. `CUSTOMER_SERVICE_RAG` is an illustrative frontend label, not a confirmed runtime code; its underscores also fail the current admin creation format in sections 6.3 and 13.3.
+- Do not invent a replacement production code, request/response DTOs, upload/chat behavior, or endpoints. A future integration requires an actual backend-supplied `uiModuleCode` and a documented RAG API contract. Existing generic bot creation alone does not satisfy that requirement.
+- This boundary is verified from repository source; no live database contents were inspected.
 
 ---
 
@@ -783,7 +792,7 @@ Admin-created codes are trimmed and converted to uppercase, contain 1 to 50 lett
   import * as signalR from "@microsoft/signalr";
 
   const connection = new signalR.HubConnectionBuilder()
-    .withUrl("http://localhost:5000/hubs/notifications", {
+    .withUrl("https://localhost:7062/hubs/notifications", {
       withCredentials: true // Transmits authentication cookies
     })
     .withAutomaticReconnect()
@@ -1306,4 +1315,60 @@ interface AssignAdminSubscriptionDto {
 - The migration does not delete, deduplicate, or rewrite assignment data. Existing duplicate user/bot pairs must be reviewed and resolved before applying the unique index, preserving any meaningful legacy purchase information.
 - Integration coverage includes Admin/SuperAdmin access; anonymous and non-admin rejection on all four endpoints; inactive/missing/stale admin identity checks; assignment, duplicate rejection and relational uniqueness; user/bot/presence filters and pagination; removal/reassignment; invalid IDs/JSON/server-managed fields; safe DTO fields; preservation of legacy metadata and related records; existing ownership-service/client endpoint behavior; and SQL Server migration generation/model consistency.
 - Tests use production controllers, authentication/session handling, CQRS and EF mappings with SQLite adaptations. Migration SQL was generated and verified; no live SQL Server database was modified.
+
+---
+
+## 15. Production CORS and Environment Configuration
+
+### 15.1 Frontend Origin Settings
+
+The API reads `Cors:AllowedOrigins` when it starts. The shared `appsettings.json` array is empty; `appsettings.Development.json` supplies the local Vite/alternative frontend origins:
+
+```json
+{
+  "Cors": {
+    "AllowedOrigins": [
+      "http://localhost:5173",
+      "http://localhost:3000"
+    ]
+  }
+}
+```
+
+- Each environment may supply its own `appsettings.{Environment}.json` with the same array structure. ASP.NET Core environment variables override the JSON settings using indexed keys such as `Cors__AllowedOrigins__0` and `Cors__AllowedOrigins__1`.
+- Staging/Production do not load Development defaults. Configure at least one explicit HTTPS origin before starting the API; missing, empty, or invalid configuration stops startup before application services run.
+- Example deployment environment values (replace example domains with deployed frontend origins):
+
+```powershell
+$env:DOTNET_ENVIRONMENT = "Production"
+$env:Cors__AllowedOrigins__0 = "https://app.example.com"
+$env:Cors__AllowedOrigins__1 = "https://admin.example.com"
+```
+
+- For Staging, select `Staging` and supply its own values, such as `https://staging.example.com`. Keep environment selectors consistent if the host also sets `ASPNETCORE_ENVIRONMENT`.
+- Supply one origin per indexed entry, not a comma-separated value. Arrays merge by index: overriding only Development index `0` retains the local alternative origin at index `1`. Staging/Production have no shared origins to inherit.
+- Restart/redeploy the API after changing origins; the policy is captured at startup. No deployed production frontend URL or secret is hardcoded in the API.
+
+### 15.2 Validation and Browser Behavior
+
+- Values must contain only an absolute HTTP(S) scheme, host, and optional port. HTTPS is mandatory outside Development. Wildcards, embedded credentials, paths, query strings, fragments, and malformed entries are rejected.
+- Outer whitespace, casing, default ports, internationalized hostnames and an optional single root slash are normalized. Duplicate normalized entries are removed. Validation errors identify the setting/index without echoing the configured value.
+- An allowed origin must match scheme, host, and port. Different subdomains, lookalike hostnames and non-default ports need their own explicit entries.
+- `FrontendPolicy` retains all methods/headers and `AllowCredentials()`. It runs between routing and authentication/authorization, including for SignalR. Allowed requests receive their exact origin in `Access-Control-Allow-Origin`, never `*`.
+- Unlisted origins receive no browser CORS permission headers; an underlying endpoint can still respond. CORS does not replace authentication or authorization. Worker API keys and n8n webhook secrets remain independently required by their existing filters; server-to-server calls need no allowed browser origin.
+
+### 15.3 Cookie and Deployment Requirements
+
+- Frontend Axios/SignalR requests keep `withCredentials: true`; Fetch uses `credentials: "include"`. Call the HTTPS API URL directly rather than relying on HTTP preflight redirects.
+- Both auth cookies retain `HttpOnly=true`, `Secure=true`, and `SameSite=None`, with explicit `Path=/` for creation/deletion and no `Domain` override (host-only). Token lifetimes and authentication behavior are unchanged.
+- Local cookie authentication uses the trusted HTTPS API at `https://localhost:7062`, launched with `dotnet run --project SaaS.Api --launch-profile https`. The Vite origin may remain `http://localhost:5173` in Development. The profile also exposes HTTP port `5037`, which should not be used for cookie authentication.
+- Production frontend and API must use HTTPS. A topology such as `https://app.example.com` calling `https://api.example.com` sends the host-only cookies to the API. Unrelated frontend/API sites also depend on browser third-party-cookie policy, which CORS cannot override.
+- Continue injecting existing signing/encryption keys, connection strings, and worker/webhook secrets through User Secrets locally or the deployment's environment/secret store. Origin configuration contains no secrets and introduces no infrastructure or schema changes.
+
+### 15.4 Verification
+
+- Configuration tests cover Development defaults, Staging/Production environment overrides, normalization/deduplication, and startup rejection of unsafe/missing values.
+- TestServer coverage exercises credentialed preflights and actual requests, unlisted origins, JWT cookie authentication, and independent worker/webhook key checks using the production CORS registration/authentication/filter implementations.
+- Token-service tests cover cookie security flags, host-only scope, and creation/deletion path across Development, Staging and Production.
+- Reference behavior: [ASP.NET Core configuration](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/?view=aspnetcore-10.0), [CORS](https://learn.microsoft.com/en-us/aspnet/core/security/cors?view=aspnetcore-10.0), and [SameSite cookies](https://learn.microsoft.com/en-us/aspnet/core/security/samesite?view=aspnetcore-10.0).
 

@@ -5,6 +5,8 @@ import GenericRunsPage from "@/features/runs/pages/GenericRunsPage"
 import type { BotTabComponentProps, BotTabDefinition } from "@/registry/botRegistry.types"
 import type { RunsPageConfig } from "@/registry/configs/runsConfig.types"
 import { defineLeadsScraperModule } from "@/registry/definitions/leadsScraper.shared"
+import type { PostScraperRunAdapter } from "@/features/bot-modules/post-scraper/postScraper.types"
+import { postScraperRunAdapter } from "@/features/bot-modules/post-scraper/postScraperRunAdapter"
 
 const schema = z.object({ account: z.string().transform(Number), term: z.string() })
 type Input = z.input<typeof schema>
@@ -50,3 +52,17 @@ export const invalidRetry: RunsPageConfig<Input, Output>["capabilities"]["canRet
 export const invalidSerializer: NonNullable<RunsPageConfig<Input, Output>["startRun"]>["serializeInfoJson"] = () => ({ term: "test" })
 // @ts-expect-error Parsed account values are numeric, not strings from the UI.
 export const invalidSelection: NonNullable<RunsPageConfig<Input, Output>["startRun"]>["resolveSelection"] = (values) => ({ connectedAccountId: values.account.toUpperCase() })
+
+// This compile-only fixture demonstrates the adapter contract without installing
+// test metadata fields or a versioned envelope in the production module.
+declare const fixtureAdapter: PostScraperRunAdapter<{ fixtureOnly: string }>
+export const serializedFixture: string = fixtureAdapter.serializeInfoJson({ fixtureOnly: "test" })
+export const extractedFixture: { fixtureOnly: string } | undefined = fixtureAdapter.extractInfoJson("{}")
+// @ts-expect-error A typed serializer cannot accept a different metadata shape.
+fixtureAdapter.serializeInfoJson({ unknownField: "test" })
+// @ts-expect-error Serializers return JSON text, never a payload object.
+export const invalidPostSerializer: PostScraperRunAdapter<{ fixtureOnly: string }>["serializeInfoJson"] = (metadata) => metadata
+// @ts-expect-error Extracted metadata must match the module's eventual schema.
+export const invalidPostExtractor: PostScraperRunAdapter<{ fixtureOnly: string }>["extractInfoJson"] = () => ({ unknownField: "test" })
+// @ts-expect-error The blocked production boundary exposes no working adapter.
+postScraperRunAdapter.adapter.serializeInfoJson({})

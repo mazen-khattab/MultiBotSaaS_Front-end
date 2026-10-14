@@ -35,6 +35,7 @@ const descriptor = {
 let server, dom, mountedRouter, browserRouter, api, originalAdapter, httpCalls;
 let AuthContext, BotWorkspaceLayout, useBotModule, BotsService, ClientBotsPage;
 let defineLeadsScraperModule, scraperRunsConfig;
+let postScraperRunsConfig;
 const clients = [];
 let createBotWorkspaceLoader,
   botWorkspaceLoader,
@@ -97,6 +98,7 @@ before(async () => {
   ({ api } = await server.ssrLoadModule("/src/core/api/api.ts"));
   ({ defineLeadsScraperModule } = await server.ssrLoadModule("/src/registry/definitions/leadsScraper.shared.ts"));
   ({ scraperRunsConfig } = await server.ssrLoadModule("/src/registry/definitions/scraperModules.ts"));
+  ({ postScraperRunsConfig } = await server.ssrLoadModule("/src/features/bot-modules/post-scraper/postScraper.module.ts"));
   originalAdapter = api.defaults.adapter;
   ({ BotsService } = await server.ssrLoadModule("/src/features/bots/services/BotsService.ts"));
   ({ default: ClientBotsPage } = await server.ssrLoadModule("/src/features/client/pages/ClientBotsPage.tsx"));
@@ -358,7 +360,7 @@ test("real groups route loads the current bot's target groups", async () => {
   assert.equal(screen.getByRole("link", { name: "Target groups" }).getAttribute("aria-current"), "page");
 });
 
-test("composed production Runs retains scoped history, pagination, filtering, and disabled creation", async () => {
+test("post scraper specialization renders DTO columns and retains scoped history, pagination, filtering, and disabled creation", async () => {
   const requests = [];
   api.defaults.adapter = async (config) => {
     if (config.url === `/api/v1/bots/${liveBot.id}`) return apiResponse(config, liveBot);
@@ -368,8 +370,10 @@ test("composed production Runs retains scoped history, pagination, filtering, an
     assert.equal(config.params.botId, liveBot.id);
     requests.push({ ...config.params });
     return apiResponse(config, {
-      items: [{ id: config.params.pageNumber, botId: liveBot.id, groupId: 5, accountId: 12,
-        collectedLeadsCount: 3, infoJson: "{}", startedAt: "2026-10-14T12:00:00Z", endedAt: null,
+      items: [{ id: config.params.pageNumber, botId: liveBot.id,
+        groupId: config.params.pageNumber === 1 ? 5 : null, accountId: config.params.pageNumber === 1 ? 12 : null,
+        // Even unknown or historical metadata must not affect DTO-based columns.
+        collectedLeadsCount: 3, infoJson: "not a recognized metadata payload", startedAt: "2026-10-14T12:00:00Z", endedAt: null,
         status: config.params.statusFilter ?? "Running" }],
       currentPage: config.params.pageNumber, totalItems: 30, totalPages: 3,
     });
@@ -377,11 +381,19 @@ test("composed production Runs retains scoped history, pagination, filtering, an
   mount(buildBotTabPath(String(liveBot.id), "runs"), { routes: appRoutes });
   await screen.findByRole("button", { name: "Cancel run #1" });
   assert.equal(screen.getByRole("button", { name: "Start run" }).disabled, true);
-  assert.ok(screen.getByText(scraperRunsConfig.startUnavailableReason));
+  assert.ok(screen.getByText(postScraperRunsConfig.startUnavailableReason));
+  const table = within(screen.getByRole("table", { name: "Post scraper run history" }));
+  assert.ok(table.getByRole("columnheader", { name: "Account ID" }));
+  assert.ok(table.getByRole("columnheader", { name: "Target group ID" }));
+  assert.ok(table.getByRole("cell", { name: "12", exact: true }));
+  assert.ok(table.getByRole("cell", { name: "5", exact: true }));
+  assert.equal(screen.queryByText("not a recognized metadata payload"), null);
+  assert.equal(screen.queryByRole("columnheader", { name: /keyword|date range/i }), null);
   assert.equal(screen.queryByRole("button", { name: /Retry run/ }), null);
   assert.equal(screen.queryByRole("link", { name: "Logs" }), null);
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
   await screen.findByRole("button", { name: "Cancel run #2" });
+  assert.equal(table.getAllByRole("cell", { name: "—", exact: true }).length, 3);
   fireEvent.change(screen.getByLabelText("Run status"), { target: { value: "Cancelled" } });
   await screen.findByText("Cancelled", { selector: "td" });
   assert.deepEqual(requests.at(-1), { botId: liveBot.id, pageNumber: 1, pageSize: 10, statusFilter: "Cancelled" });
