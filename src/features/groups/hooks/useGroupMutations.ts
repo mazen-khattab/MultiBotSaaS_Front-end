@@ -23,7 +23,8 @@ export function useGroupMutations() {
       else await GroupsService.delete(write.id)
     },
     onSettled: async (_data, error, write) => {
-      if (write.operation === "delete" && !error) client.removeQueries({ queryKey: queryKeys.groups.detail(write.id), exact: true })
+      // Deletion is still by group ID. Remove its details under every bot key.
+      if (write.operation === "delete" && !error) client.removeQueries({ queryKey: queryKeys.groups.detail(write.id) })
       // A transport failure can follow an applied write. Reconcile on failure
       // too; the returned mutation data is never used as a detail cache key.
       await client.invalidateQueries({ queryKey: queryKeys.groups.all })

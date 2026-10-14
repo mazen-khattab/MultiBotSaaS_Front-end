@@ -1,4 +1,4 @@
-/** List reads do not expose botId; membership in a workspace cannot be inferred. */
+/** Read endpoints provide bot scope; the response DTO does not need botId. */
 export interface Group {
   readonly id: number
   readonly groupName: string

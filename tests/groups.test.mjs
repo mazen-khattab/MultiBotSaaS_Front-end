@@ -83,7 +83,7 @@ async function openCreate() {
   fireEvent.change(screen.getByLabelText("Configuration JSON"), { target: { value: input.configJson } })
 }
 
-test("CRUD uses exact V2 routes and fields, credential auth, and abortable unfiltered reads", async () => {
+test("CRUD uses bot-scoped read routes, existing write fields, credentials, and abort signals", async () => {
   const calls = []
   const signal = new AbortController().signal
   api.defaults.adapter = async (config) => {
@@ -96,13 +96,13 @@ test("CRUD uses exact V2 routes and fields, credential auth, and abortable unfil
     }
     return success(config, config.method === "delete" ? true : "user-id-not-group-id")
   }
-  assert.deepEqual(await service.getAll(signal), [group])
-  assert.deepEqual(await service.getById(5, signal), details)
+  assert.deepEqual(await service.getAll(73, signal), [group])
+  assert.deepEqual(await service.getById(73, 5, signal), details)
   assert.equal(await service.create({ botId: 73, ...input }), undefined)
   assert.equal(await service.update(5, { ...input, id: 999, runsCount: 4 }), undefined)
   assert.equal(await service.delete(5), undefined)
   assert.deepEqual(calls.map(({ method, url }) => [method, url]), [
-    ["get", "/api/v1/targetgroups"], ["get", "/api/v1/targetgroups/5"],
+    ["get", "/api/v1/TargetGroups/73"], ["get", "/api/v1/TargetGroups/73/5"],
     ["post", "/api/v1/targetgroups"], ["put", "/api/v1/targetgroups/5"], ["delete", "/api/v1/targetgroups/5"],
   ])
   assert.equal(calls[0].params, undefined)
@@ -113,12 +113,12 @@ test("CRUD uses exact V2 routes and fields, credential auth, and abortable unfil
 test("malformed responses, historical casing, wrong detail IDs and false deletes fail", async () => {
   for (const data of [{ ...details, id: 6 }, { ...details, groupUrl: undefined, groupURL: group.groupUrl }, { ...details, runsCount: -1 }]) {
     api.defaults.adapter = async (config) => success(config, data)
-    await assert.rejects(service.getById(5))
+    await assert.rejects(service.getById(73, 5))
   }
   api.defaults.adapter = async (config) => success(config, false)
   await assert.rejects(service.delete(5))
   api.defaults.adapter = async (config) => success(config, {})
-  await assert.rejects(service.getAll())
+  await assert.rejects(service.getAll(73))
   api.defaults.adapter = async (config) => ({ ...success(config, null), data: { isSuccess: false, message: "Rejected", errorType: 1, data: null } })
   await assert.rejects(service.create({ botId: 73, ...input }))
   await assert.rejects(service.update(5, input))
@@ -126,7 +126,7 @@ test("malformed responses, historical casing, wrong detail IDs and false deletes
 
 test("writes invalidate every group list and detail without treating UserId as GroupId", async () => {
   const { client, Wrapper } = wrapper()
-  const keys = [queryKeys.groups.list(), queryKeys.groups.list({ botId: 99 }), queryKeys.groups.detail(5)]
+  const keys = [queryKeys.groups.list({ botId: 73 }), queryKeys.groups.list({ botId: 99 }), queryKeys.groups.detail(73, 5), queryKeys.groups.detail(99, 5)]
   for (const key of keys) client.setQueryData(key, { stale: true })
   client.setQueryData(queryKeys.accounts.list(), ["untouched"])
   const { result } = renderHook(() => useMutations(), { wrapper: Wrapper })
@@ -154,20 +154,20 @@ test("failed writes reconcile reads and duplicate hook submissions are blocked w
   await waitFor(() => assert.equal(result.current.isPending, false))
 })
 
-test("list remains user-wide and only explicit detail actions fetch a group", async () => {
+test("list requests the current bot and only explicit detail actions fetch a group", async () => {
   const calls = []
-  api.defaults.adapter = async (config) => { calls.push(config.url); return success(config, config.url.endsWith("/5") ? details : [group, { ...group, id: 6, groupName: "Other bot group" }]) }
+  api.defaults.adapter = async (config) => { calls.push(config.url); return success(config, config.url.endsWith("/5") ? details : [group, { ...group, id: 6, groupName: "Second group" }]) }
   mount()
   await screen.findByText("Founders")
-  assert.ok(screen.getByText("Other bot group"))
-  assert.deepEqual(calls, ["/api/v1/targetgroups"])
-  assert.ok(screen.getByText(/across all bots/))
+  assert.ok(screen.getByText("Second group"))
+  assert.deepEqual(calls, ["/api/v1/TargetGroups/73"])
+  assert.ok(screen.getByText("Manage the target groups assigned to this bot."))
   fireEvent.click(screen.getByRole("button", { name: "View Founders" }))
   const dialog = await screen.findByRole("dialog")
   await within(dialog).findByText("45")
   assert.ok(within(dialog).getByText(details.configJson))
   assert.ok(within(dialog).getByText("3"))
-  assert.deepEqual(calls, ["/api/v1/targetgroups", "/api/v1/targetgroups/5"])
+  assert.deepEqual(calls, ["/api/v1/TargetGroups/73", "/api/v1/TargetGroups/73/5"])
 })
 
 test("unsafe server URL is displayed as text without an executable link", async () => {
@@ -229,7 +229,7 @@ test("edit waits for fresh details, preserves defaults and sends canonical field
     return success(config, [group])
   }
   const { client } = mount()
-  client.setQueryData(queryKeys.groups.detail(5), { ...details, groupName: "Old name" })
+  client.setQueryData(queryKeys.groups.detail(73, 5), { ...details, groupName: "Old name" })
   await screen.findByText("Founders")
   fireEvent.click(screen.getByRole("button", { name: "Edit Founders" }))
   await waitFor(() => assert.equal(typeof finish, "function"))
@@ -266,14 +266,16 @@ test("failed create keeps entered values and releases the form for explicit retr
   assert.equal(writes, 1)
 })
 
-test("delete requires confirmation, removes only selected detail, and refetches list", async () => {
+test("delete requires confirmation, removes the group's details in every bot cache, and refetches lists", async () => {
   let deletes = 0
   api.defaults.adapter = async (config) => {
     if (config.method === "delete") { deletes++; return success(config, true) }
     return success(config, config.url.endsWith("/5") ? details : deletes ? [] : [group])
   }
   const { client } = mount()
-  client.setQueryData(queryKeys.groups.detail(6), { ...details, id: 6 })
+  client.setQueryData(queryKeys.groups.detail(74, 5), details)
+  client.setQueryData(queryKeys.groups.detail(5), details)
+  client.setQueryData(queryKeys.groups.detail(74, 6), { ...details, id: 6 })
   await screen.findByText("Founders")
   fireEvent.click(screen.getByRole("button", { name: "Delete Founders" }))
   const confirm = await screen.findByRole("button", { name: "Confirm delete" })
@@ -282,8 +284,10 @@ test("delete requires confirmation, removes only selected detail, and refetches 
   await screen.findByText("Target group deleted.")
   await screen.findByText("No target groups")
   assert.equal(deletes, 1)
+  assert.equal(client.getQueryData(queryKeys.groups.detail(73, 5)), undefined)
+  assert.equal(client.getQueryData(queryKeys.groups.detail(74, 5)), undefined)
   assert.equal(client.getQueryData(queryKeys.groups.detail(5)), undefined)
-  assert.ok(client.getQueryData(queryKeys.groups.detail(6)))
+  assert.ok(client.getQueryData(queryKeys.groups.detail(74, 6)))
 })
 
 test("failed delete retains the row and error through refetch and permits retry", async () => {
@@ -314,7 +318,7 @@ test("list and detail failures expose retry and do not enable edits from stale d
     return success(config, [group])
   }
   const { client } = mount()
-  client.setQueryData(queryKeys.groups.detail(5), details)
+  client.setQueryData(queryKeys.groups.detail(73, 5), details)
   await screen.findByText("Founders")
   fireEvent.click(screen.getByRole("button", { name: "Edit Founders" }))
   await screen.findByText("Group not found")
@@ -337,4 +341,31 @@ test("switching bots closes dialogs and discards old creation context", async ()
   fireEvent.click(screen.getByRole("button", { name: "Save group" }))
   await screen.findByText("Target group created.")
   assert.equal(payload.botId, 74)
+})
+
+test("switching bots separates list and detail caches even for the same group ID", async () => {
+  const calls = []
+  api.defaults.adapter = async (config) => {
+    calls.push(config.url)
+    assert.equal(config.params, undefined)
+    const botId = config.url.split("/")[4]
+    return success(config, config.url.endsWith("/5")
+      ? { ...details, groupName: `Bot ${botId} details` }
+      : [{ ...group, groupName: `Bot ${botId} group` }])
+  }
+  const { client, rerender } = mount()
+  await screen.findByText("Bot 73 group")
+  fireEvent.click(screen.getByRole("button", { name: "View Bot 73 group" }))
+  await within(screen.getByRole("dialog")).findByText("Bot 73 details")
+  fireEvent.click(screen.getByRole("button", { name: "Close" }))
+  rerender(h(Page, { botId: "74" }))
+  await screen.findByText("Bot 74 group")
+  assert.equal(screen.queryByText("Bot 73 group"), null)
+  fireEvent.click(screen.getByRole("button", { name: "View Bot 74 group" }))
+  await within(screen.getByRole("dialog")).findByText("Bot 74 details")
+  assert.equal(client.getQueryData(queryKeys.groups.list({ botId: 73 }))[0].groupName, "Bot 73 group")
+  assert.equal(client.getQueryData(queryKeys.groups.list({ botId: 74 }))[0].groupName, "Bot 74 group")
+  assert.equal(client.getQueryData(queryKeys.groups.detail(73, 5)).groupName, "Bot 73 details")
+  assert.equal(client.getQueryData(queryKeys.groups.detail(74, 5)).groupName, "Bot 74 details")
+  assert.deepEqual(calls, ["/api/v1/TargetGroups/73", "/api/v1/TargetGroups/73/5", "/api/v1/TargetGroups/74", "/api/v1/TargetGroups/74/5"])
 })

@@ -19,7 +19,7 @@ function GroupDialog({ selection, botId, onClose, onSaved }: {
   readonly onClose: () => void
   readonly onSaved: (message: string) => void
 }) {
-  const details = useGroup(selection.mode === "create" ? null : selection.id)
+  const details = useGroup(botId, selection.mode === "create" ? null : selection.id)
   const mutation = useGroupMutations()
   const deleting = useRef(false)
   const [failure, setFailure] = useState<unknown>(null)
@@ -50,7 +50,7 @@ function GroupDialog({ selection, botId, onClose, onSaved }: {
       onPointerDownOutside={(event) => { if (busy) event.preventDefault() }}>
       <DialogTitle className="text-lg font-semibold">{title}</DialogTitle>
       <DialogDescription className="mt-2 text-sm">
-        {selection.mode === "create" ? `New groups are assigned to bot ${botId}.` : "Changes apply to the selected group wherever it is used."}
+        {selection.mode === "create" ? `New groups are assigned to bot ${botId}.` : "Manage the selected target group for this bot."}
       </DialogDescription>
       {selection.mode !== "create" && !ready && !details.error ? <p role="status" className="py-4">Loading group details…</p> : null}
       {selection.mode !== "create" ? <ApiErrorAlert error={details.error} onRetry={() => { void details.refetch() }} retrying={details.isFetching} /> : null}
@@ -75,9 +75,9 @@ function GroupDialog({ selection, botId, onClose, onSaved }: {
   </Dialog>
 }
 
-/** The workspace supplies botId for creation, while reads stay user-wide. */
+/** The workspace supplies botId for both creation and server-scoped reads. */
 function GroupsSession({ botId }: BotTabComponentProps) {
-  const groups = useGroups()
+  const groups = useGroups(Number(botId))
   const [selection, setSelection] = useState<GroupSelection | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const onSelect = useCallback((mode: "view" | "edit" | "delete", id: number) => {
@@ -88,8 +88,8 @@ function GroupsSession({ botId }: BotTabComponentProps) {
   return <section aria-label="Target groups" className="space-y-6">
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h3 className="text-xl font-semibold">All your target groups</h3>
-        <p className="mt-1 text-sm text-muted-foreground">This list includes your groups across all bots. New groups are assigned to this bot.</p>
+        <h3 className="text-xl font-semibold">Target groups</h3>
+        <p className="mt-1 text-sm text-muted-foreground">Manage the target groups assigned to this bot.</p>
       </div>
       <Button type="button" onClick={() => { setNotice(null); setSelection({ mode: "create" }) }}>Add group</Button>
     </div>

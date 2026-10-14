@@ -1,4 +1,4 @@
-import { History, Target, UsersRound } from "lucide-react"
+import { History, ListChecks, Send, Target, UsersRound } from "lucide-react"
 import { lazy } from "react"
 
 import type { BotModuleDefinition } from "@/registry/botRegistry.types"
@@ -25,6 +25,8 @@ export const scraperRunsConfig: RunsPageConfig<Record<string, unknown>> = Object
 const RunsPage = lazy(() => import("@/features/runs/pages/RegisteredRunsPage"))
 const ConnectedAccountsPage = lazy(() => import("@/features/connected-accounts/pages/ConnectedAccountsPage"))
 const GroupsPage = lazy(() => import("@/features/groups/pages/GroupsPage"))
+const LeadsPage = lazy(() => import("@/features/leads/pages/LeadsPage"))
+const MessagingPreviewPage = lazy(() => import("@/features/leads/pages/MessagingPreviewPage"))
 
 /** These exact values are defined by the backend, independently of bot IDs. */
 export function defineScraperModule(uiModuleCode: string): BotModuleDefinition {
@@ -33,6 +35,10 @@ export function defineScraperModule(uiModuleCode: string): BotModuleDefinition {
     Object.freeze({ slug: "runs", label: "Runs", icon: History, component: RunsPage, config: scraperRunsConfig }),
     Object.freeze({ slug: "connected-accounts", label: "Connected accounts", icon: UsersRound, component: ConnectedAccountsPage }),
     Object.freeze({ slug: "groups", label: "Target groups", icon: Target, component: GroupsPage }),
+    // Only connect the approved Part 17 pages to existing modules here. Broader
+    // bot-specific registry configuration remains the next part's responsibility.
+    Object.freeze({ slug: "leads", label: "Leads", icon: ListChecks, component: LeadsPage }),
+    Object.freeze({ slug: "messaging-preview", label: "Available leads", icon: Send, component: MessagingPreviewPage }),
   ])
   return Object.freeze({ uiModuleCode, sidebarTabs: tabs, pageConfigs: Object.freeze({ runs: scraperRunsConfig }),
     resolveComponent: (slug: string) => tabs.find((tab) => tab.slug === slug)?.component })
