@@ -8,6 +8,7 @@ import { JSDOM } from "jsdom";
 import React from "react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { createServer } from "vite";
+import { z } from "zod";
 
 const h = React.createElement;
 const user = {
@@ -33,6 +34,8 @@ const descriptor = {
 
 let server, dom, mountedRouter, browserRouter, api, originalAdapter, httpCalls;
 let AuthContext, BotWorkspaceLayout, useBotModule, BotsService, ClientBotsPage;
+let defineLeadsScraperModule, scraperRunsConfig;
+let postScraperRunsConfig;
 const clients = [];
 let createBotWorkspaceLoader,
   botWorkspaceLoader,
@@ -93,6 +96,9 @@ before(async () => {
     "/src/context/auth/AuthContext.tsx",
   ));
   ({ api } = await server.ssrLoadModule("/src/core/api/api.ts"));
+  ({ defineLeadsScraperModule } = await server.ssrLoadModule("/src/registry/definitions/leadsScraper.shared.ts"));
+  ({ scraperRunsConfig } = await server.ssrLoadModule("/src/registry/definitions/scraperModules.ts"));
+  ({ postScraperRunsConfig } = await server.ssrLoadModule("/src/features/bot-modules/post-scraper/postScraper.module.ts"));
   originalAdapter = api.defaults.adapter;
   ({ BotsService } = await server.ssrLoadModule("/src/features/bots/services/BotsService.ts"));
   ({ default: ClientBotsPage } = await server.ssrLoadModule("/src/features/client/pages/ClientBotsPage.tsx"));
@@ -309,7 +315,7 @@ test("real application home and Runs routes use backend module code instead of b
   ]) {
     api.defaults.adapter = async (config) => {
       if (config.url === `/api/v1/bots/${liveBot.id}`) return apiResponse(config, liveBot);
-      assert.equal(config.url, "/api/v1/runs");
+      assert.equal(config.url, "/api/v1/scrapes");
       assert.equal(config.params.botId, liveBot.id);
       return apiResponse(config, { items: [], totalItems: 0, totalPages: 0, currentPage: 1 });
     };
@@ -352,6 +358,110 @@ test("real groups route loads the current bot's target groups", async () => {
   mount(buildBotTabPath(String(liveBot.id), "groups"), { routes: appRoutes });
   await screen.findByText("Workspace group", {}, { timeout: 5000 });
   assert.equal(screen.getByRole("link", { name: "Target groups" }).getAttribute("aria-current"), "page");
+});
+
+test("post scraper specialization renders DTO columns and retains scoped history, pagination, filtering, and disabled creation", async () => {
+  const requests = [];
+  api.defaults.adapter = async (config) => {
+    if (config.url === `/api/v1/bots/${liveBot.id}`) return apiResponse(config, liveBot);
+    assert.equal(config.url, "/api/v1/scrapes");
+    assert.equal(config.method, "get");
+    assert.equal(config.withCredentials, true);
+    assert.equal(config.params.botId, liveBot.id);
+    requests.push({ ...config.params });
+    return apiResponse(config, {
+      items: [{ id: config.params.pageNumber, botId: liveBot.id,
+        groupId: config.params.pageNumber === 1 ? 5 : null, accountId: config.params.pageNumber === 1 ? 12 : null,
+        // Even unknown or historical metadata must not affect DTO-based columns.
+        collectedLeadsCount: 3, infoJson: "not a recognized metadata payload", startedAt: "2026-10-14T12:00:00Z", endedAt: null,
+        status: config.params.statusFilter ?? "Running" }],
+      currentPage: config.params.pageNumber, totalItems: 30, totalPages: 3,
+    });
+  };
+  mount(buildBotTabPath(String(liveBot.id), "runs"), { routes: appRoutes });
+  await screen.findByRole("button", { name: "Cancel run #1" });
+  assert.equal(screen.getByRole("button", { name: "Start run" }).disabled, true);
+  assert.ok(screen.getByText(postScraperRunsConfig.startUnavailableReason));
+  const table = within(screen.getByRole("table", { name: "Post scraper run history" }));
+  assert.ok(table.getByRole("columnheader", { name: "Account ID" }));
+  assert.ok(table.getByRole("columnheader", { name: "Target group ID" }));
+  assert.ok(table.getByRole("cell", { name: "12", exact: true }));
+  assert.ok(table.getByRole("cell", { name: "5", exact: true }));
+  assert.equal(screen.queryByText("not a recognized metadata payload"), null);
+  assert.equal(screen.queryByRole("columnheader", { name: /keyword|date range/i }), null);
+  assert.equal(screen.queryByRole("button", { name: /Retry run/ }), null);
+  assert.equal(screen.queryByRole("link", { name: "Logs" }), null);
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  await screen.findByRole("button", { name: "Cancel run #2" });
+  assert.equal(table.getAllByRole("cell", { name: "—", exact: true }).length, 3);
+  fireEvent.change(screen.getByLabelText("Run status"), { target: { value: "Cancelled" } });
+  await screen.findByText("Cancelled", { selector: "td" });
+  assert.deepEqual(requests.at(-1), { botId: liveBot.id, pageNumber: 1, pageSize: 10, statusFilter: "Cancelled" });
+});
+
+test("omitted scraper capabilities cannot be reached through navigation or direct URLs", async () => {
+  const definition = defineLeadsScraperModule({
+    uiModuleCode: descriptor.uiModuleCode, supportsGroups: false, supportsLeads: false, supportsRuns: false,
+  });
+  const registry = { [definition.uiModuleCode]: definition };
+  mount(buildBotWorkspacePath(descriptor.botId), { registry });
+  await screen.findByRole("heading", { name: "Workspace ready" });
+  const nav = within(screen.getByRole("navigation", { name: "Bot workspace navigation" }));
+  assert.deepEqual(nav.getAllByRole("link").map((link) => link.textContent), ["Home", "Connected accounts"]);
+  for (const slug of ["groups", "runs", "leads", "messaging-preview", "logs"]) {
+    await act(async () => { await mountedRouter.navigate(buildBotTabPath(descriptor.botId, slug)); });
+    await screen.findByRole("heading", { name: "Workspace page not found" });
+  }
+  assert.equal(httpCalls, 0);
+});
+
+test("shared Runs binds a module's transformed form and serializer instead of the default config", async () => {
+  // Only this injected test module enables creation; production schemas remain deferred.
+  const schema = z.object({ account: z.string().min(1).transform(Number), term: z.string().min(1) });
+  const definition = defineLeadsScraperModule({
+    uiModuleCode: descriptor.uiModuleCode, supportsGroups: false, supportsLeads: false, supportsRuns: true,
+    runsConfig: {
+      ...scraperRunsConfig, title: "Custom composed runs", startUnavailableReason: undefined,
+      capabilities: { ...scraperRunsConfig.capabilities, canCreateRun: true, canListRuns: false },
+      startRun: {
+        form: { schema, defaultValues: { account: "", term: "fixture term" }, fields: [
+          { name: "account", label: "Fixture account", type: "select", optionsProvider: "fixture-accounts" },
+          { name: "term", label: "Fixture term", type: "text" },
+        ] },
+        accountOptionsProvider: "fixture-accounts",
+        resolveSelection: (values) => {
+          assert.equal(typeof values.account, "number");
+          return { connectedAccountId: values.account };
+        },
+        serializeInfoJson: (values) => JSON.stringify({ term: values.term }),
+      },
+    },
+  });
+  const ownedDescriptor = { ...descriptor, botId: String(liveBot.id) };
+  const writes = [];
+  api.defaults.adapter = async (config) => {
+    assert.equal(config.withCredentials, true);
+    if (config.url === "/api/v1/connectedaccounts/eligible") {
+      assert.deepEqual(config.params, { botId: liveBot.id });
+      return apiResponse(config, [{ id: 12, displayName: "Fixture eligible", platform: "Facebook", expiredAt: "2026-10-25T14:30:00Z", isActive: true }]);
+    }
+    assert.equal(config.url, "/api/v1/scrapes");
+    assert.equal(config.method, "post");
+    writes.push(JSON.parse(config.data));
+    return apiResponse(config, 42);
+  };
+  mount(buildBotTabPath(ownedDescriptor.botId, "runs"), {
+    registry: { [definition.uiModuleCode]: definition }, loadDescriptor: async () => ownedDescriptor,
+  });
+  await screen.findByRole("heading", { name: "Custom composed runs" });
+  await waitFor(() => assert.equal(screen.getByRole("button", { name: "Start run" }).disabled, false));
+  fireEvent.click(screen.getByRole("button", { name: "Start run" }));
+  const dialog = within(await screen.findByRole("dialog"));
+  assert.ok(dialog.getByLabelText("Fixture term"));
+  fireEvent.change(dialog.getByLabelText("Fixture account"), { target: { value: "12" } });
+  fireEvent.click(dialog.getByRole("button", { name: "Start run" }));
+  await screen.findByText("Run #42 started successfully.");
+  assert.deepEqual(writes, [{ botId: liveBot.id, connectedAccountId: 12, infoJson: '{"term":"fixture term"}' }]);
 });
 
 test("lead listing navigates to a separate quota preview and account picker dispatches its recipients", async () => {

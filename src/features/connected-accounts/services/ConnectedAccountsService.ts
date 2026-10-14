@@ -65,7 +65,7 @@ export const ConnectedAccountsService = {
     return save("post", endpoint, toCreateConnectedAccountDto(input))
   },
   async getAll(botId: number, signal?: AbortSignal) {
-    // There is no botId filter contract. This is the user's shared account list.
+    // Part 18 confirms this bot-scoped path; ownership is enforced by the API.
     const response = await api.get<unknown>(`${endpoint}/${botId}`, { signal })
     return readApiData(response.data, connectedAccountListSchema.array())
   },

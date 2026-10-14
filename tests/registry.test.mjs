@@ -5,7 +5,8 @@ import { House } from "lucide-react"
 import { lazy } from "react"
 import { createServer } from "vite"
 
-let server, botModulesRegistry, resolveBotModule, UnsupportedBotModuleError
+let server, botModulesRegistry, resolveBotModule, UnsupportedBotModuleError, defineLeadsScraperModule, scraperRunsConfig
+let postScraperModule, postScraperRunsConfig, postScraperRunSchema, postScraperRunAdapter
 
 before(async () => {
   // Load the real resolver through the same aliases as the application. Test
@@ -18,6 +19,11 @@ before(async () => {
   ;({ botModulesRegistry } = await server.ssrLoadModule("/src/registry/botModulesRegistry.ts"))
   ;({ resolveBotModule } = await server.ssrLoadModule("/src/registry/resolveBotModule.ts"))
   ;({ UnsupportedBotModuleError } = await server.ssrLoadModule("/src/registry/botRegistry.errors.ts"))
+  ;({ defineLeadsScraperModule } = await server.ssrLoadModule("/src/registry/definitions/leadsScraper.shared.ts"))
+  ;({ scraperRunsConfig } = await server.ssrLoadModule("/src/registry/definitions/scraperModules.ts"))
+  ;({ postScraperModule, postScraperRunsConfig } = await server.ssrLoadModule("/src/features/bot-modules/post-scraper/postScraper.module.ts"))
+  ;({ postScraperRunSchema } = await server.ssrLoadModule("/src/features/bot-modules/post-scraper/postScraperRunSchema.ts"))
+  ;({ postScraperRunAdapter } = await server.ssrLoadModule("/src/features/bot-modules/post-scraper/postScraperRunAdapter.ts"))
 })
 
 after(async () => { await server?.close() })
@@ -100,4 +106,62 @@ test("the production registry contains only exact backend codes and remains immu
   assert.equal(Object.isFrozen(botModulesRegistry), true)
   assert.throws(() => { botModulesRegistry[definition.uiModuleCode] = definition }, TypeError)
   assert.ok(resolveBotModule(definition.uiModuleCode) instanceof UnsupportedBotModuleError)
+})
+
+test("shared composition omits unsupported tabs and direct resolution for every capability combination", () => {
+  for (const supportsGroups of [false, true]) {
+    for (const supportsLeads of [false, true]) {
+      for (const supportsRuns of [false, true]) {
+        const module = defineLeadsScraperModule({
+          uiModuleCode: "TEST-ONLY-SCRAPER", supportsGroups, supportsLeads, supportsRuns,
+          ...(supportsRuns ? { runsConfig: scraperRunsConfig } : {}),
+        })
+        const expected = [
+          ...(supportsRuns ? ["runs"] : []), "connected-accounts",
+          ...(supportsGroups ? ["groups"] : []),
+          ...(supportsLeads ? ["leads", "messaging-preview"] : []),
+        ]
+        assert.deepEqual(module.sidebarTabs.map((tab) => tab.slug), expected)
+        assert.deepEqual(module.scraperCapabilities, { supportsGroups, supportsLeads, supportsRuns })
+        for (const slug of ["runs", "connected-accounts", "groups", "leads", "messaging-preview", "logs", "missing"]) {
+          assert.equal(module.resolveComponent(slug), module.sidebarTabs.find((tab) => tab.slug === slug)?.component)
+        }
+        assert.deepEqual(Object.keys(module.pageConfigs), supportsRuns ? ["runs"] : [])
+        if (supportsRuns) assert.equal(module.pageConfigs.runs, scraperRunsConfig)
+        assert.equal(Object.isFrozen(module), true)
+        assert.equal(Object.isFrozen(module.scraperCapabilities), true)
+        assert.equal(Object.isFrozen(module.sidebarTabs), true)
+        assert.equal(module.sidebarTabs.every(Object.isFrozen), true)
+        assert.equal(Object.isFrozen(module.pageConfigs), true)
+        // Building a definition must never install an example code globally.
+        assert.ok(resolveBotModule(module.uiModuleCode) instanceof UnsupportedBotModuleError)
+      }
+    }
+  }
+})
+
+test("only the documented post scraper code selects its specialized run config", () => {
+  assert.equal(resolveBotModule("FB-POSTS-SCRAPER"), postScraperModule)
+  assert.equal(postScraperModule.pageConfigs.runs, postScraperRunsConfig)
+  assert.equal(postScraperModule.sidebarTabs.find((tab) => tab.slug === "runs").config, postScraperRunsConfig)
+  assert.equal(resolveBotModule("FB-MEMBERS-SCRAPER").pageConfigs.runs, scraperRunsConfig)
+  assert.equal(resolveBotModule("FB-MEMBERS-MESSAGES-SCRAPER").pageConfigs.runs, scraperRunsConfig)
+  assert.ok(resolveBotModule("FB_POST_SCRAPER") instanceof UnsupportedBotModuleError)
+  assert.equal(postScraperRunsConfig.capabilities.canListRuns, true)
+  assert.equal(postScraperRunsConfig.capabilities.canGetRun, true)
+  assert.equal(postScraperRunsConfig.capabilities.canCancelRun, true)
+  assert.equal(postScraperRunsConfig.capabilities.canCreateRun, false)
+  assert.equal(postScraperRunsConfig.startRun, undefined)
+})
+
+test("post scraper schema and adapter remain explicitly blocked without a payload fallback", () => {
+  assert.equal(postScraperRunSchema.status, "blocked")
+  assert.match(postScraperRunSchema.reason, /infoJson field schema and version policy/)
+  assert.equal(postScraperRunAdapter.status, "blocked")
+  assert.equal("adapter" in postScraperRunAdapter, false)
+  assert.equal("serializeInfoJson" in postScraperRunAdapter, false)
+  assert.equal("extractInfoJson" in postScraperRunAdapter, false)
+  assert.equal(Object.isFrozen(postScraperRunSchema), true)
+  assert.equal(Object.isFrozen(postScraperRunAdapter), true)
+  assert.equal(Object.isFrozen(postScraperRunsConfig.table.columns), true)
 })

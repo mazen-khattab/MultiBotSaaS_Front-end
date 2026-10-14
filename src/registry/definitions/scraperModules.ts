@@ -1,9 +1,6 @@
-import { History, ListChecks, Send, Target, UsersRound } from "lucide-react"
-import { lazy } from "react"
-
-import type { BotModuleDefinition } from "@/registry/botRegistry.types"
 import type { RunsPageConfig } from "@/registry/configs/runsConfig.types"
 import type { RunDto } from "@/features/runs/types/runs.types"
+import { defineLeadsScraperModule } from "@/registry/definitions/leadsScraper.shared"
 
 /** Only existing generic Runs UI is registered; bot-specific forms stay deferred. */
 export const scraperRunsConfig: RunsPageConfig<Record<string, unknown>> = Object.freeze({
@@ -22,24 +19,15 @@ export const scraperRunsConfig: RunsPageConfig<Record<string, unknown>> = Object
   }),
 })
 
-const RunsPage = lazy(() => import("@/features/runs/pages/RegisteredRunsPage"))
-const ConnectedAccountsPage = lazy(() => import("@/features/connected-accounts/pages/ConnectedAccountsPage"))
-const GroupsPage = lazy(() => import("@/features/groups/pages/GroupsPage"))
-const LeadsPage = lazy(() => import("@/features/leads/pages/LeadsPage"))
-const MessagingPreviewPage = lazy(() => import("@/features/leads/pages/MessagingPreviewPage"))
-
-/** These exact values are defined by the backend, independently of bot IDs. */
-export function defineScraperModule(uiModuleCode: string): BotModuleDefinition {
-  // Management tabs keep their own read scope; groups use botId only on create.
-  const tabs = Object.freeze([
-    Object.freeze({ slug: "runs", label: "Runs", icon: History, component: RunsPage, config: scraperRunsConfig }),
-    Object.freeze({ slug: "connected-accounts", label: "Connected accounts", icon: UsersRound, component: ConnectedAccountsPage }),
-    Object.freeze({ slug: "groups", label: "Target groups", icon: Target, component: GroupsPage }),
-    // Only connect the approved Part 17 pages to existing modules here. Broader
-    // bot-specific registry configuration remains the next part's responsibility.
-    Object.freeze({ slug: "leads", label: "Leads", icon: ListChecks, component: LeadsPage }),
-    Object.freeze({ slug: "messaging-preview", label: "Available leads", icon: Send, component: MessagingPreviewPage }),
-  ])
-  return Object.freeze({ uiModuleCode, sidebarTabs: tabs, pageConfigs: Object.freeze({ runs: scraperRunsConfig }),
-    resolveComponent: (slug: string) => tabs.find((tab) => tab.slug === slug)?.component })
+/** Preserve the existing modules until a documented specialization changes them. */
+export function defineScraperModule(uiModuleCode: string) {
+  return defineLeadsScraperModule({
+    uiModuleCode,
+    supportsGroups: true,
+    supportsLeads: true,
+    supportsRuns: true,
+    // No module-specific creation schema is defined yet. History, detail, and
+    // cancellation work; the generic page keeps Start run disabled explicitly.
+    runsConfig: scraperRunsConfig,
+  })
 }

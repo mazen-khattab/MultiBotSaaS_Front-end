@@ -10,7 +10,7 @@
 ## 1. API General Configuration
 
 ### 1.1 Base URL & Environment Configuration
-- **Development Base URL:** `http://localhost:5000` (or `https://localhost:5001`)
+- **Development Base URL:** `https://localhost:7062` with the existing `https` launch profile; `http://localhost:5037` is also exposed but cookie authentication requires the HTTPS API URL.
 - **Vite Local Dev Server Origin:** `http://localhost:5173`
 - **Global Route Prefix:** `/api/v1/` for standard controllers
 - **SignalR Hub Route:** `/hubs/notifications`
@@ -27,21 +27,22 @@
 - The frontend must **not** set manual `Authorization: Bearer <token>` headers; the browser automatically attaches HTTP-only cookies on every request when `withCredentials: true` is configured.
 
 ### 1.4 CORS Configuration
-The backend defines the `FrontendPolicy` in `Program.cs`:
-- **Allowed Origins:**
-  - `http://localhost:5173` (Vite dev server)
-  - `http://localhost:3000` (Alternative local frontend)
-  - Configured n8n cloud webhook origins
+The backend configures `FrontendPolicy` from the `Cors:AllowedOrigins` array at startup:
+- **Development Defaults:** `http://localhost:5173` (Vite) and `http://localhost:3000` (alternative local frontend), supplied only by `appsettings.Development.json`.
+- **Staging/Production:** Configure explicit HTTPS frontend origins through environment-specific settings or indexed environment variables, for example `Cors__AllowedOrigins__0=https://app.example.com`. The shared configuration contains no frontend origin; missing/invalid configuration stops startup.
+- Origins contain only scheme, host, and optional port. They are normalized and validated; wildcard origins, credentials, paths, query strings and fragments are rejected. HTTP origins are accepted only in Development.
 - **Allowed Headers:** Any (`AllowAnyHeader()`)
 - **Allowed Methods:** Any (`AllowAnyMethod()`)
 - **Credentials:** Allowed (`AllowCredentials()`)
+- Worker/webhook authentication remains independent. n8n URLs are not browser CORS defaults. See section 15 for deployment configuration.
 
 ### 1.5 Cookie Security Flags (Dev & Production)
 Cookies are generated via `TokenService`:
 - `HttpOnly`: `true` (always)
-- `Secure`: `true` (enables cross-site cookie transmission)
-- `SameSite`: `SameSiteMode.None` (enables cross-origin requests between Vite on `localhost:5173` and API on `localhost:5000`)
-- `Path`: `/`
+- `Secure`: `true` (send cookies to the HTTPS API URL, including local development)
+- `SameSite`: `SameSiteMode.None` (permits cross-site cookie use, subject to browser cookie policy; requires `Secure`)
+- `Path`: explicitly `/` for creation and deletion
+- `Domain`: unset; cookies remain host-only on the API host. Keep `withCredentials: true` on frontend requests.
 
 ### 1.6 Standard & Custom Headers
 | Header | Usage | Required By |
@@ -361,6 +362,14 @@ The frontend Bot Registry dynamically mounts UI workspaces based on `uiModuleCod
 | `FbMembersMessagesScraper` | `FB-MEMBERS-MESSAGES-SCRAPER` | Dispatches automated direct messages to collected leads |
 
 Admin-created codes are trimmed and converted to uppercase, contain 1 to 50 letters/numbers in segments separated by single hyphens, and are unique and immutable through the management API. A new bot starts inactive; add its React registry/module support and deploy the frontend before explicitly activating it. See section 13 for admin endpoints and DTOs.
+
+### 6.4 RAG Customer Service — Current Backend Boundary
+
+- The current backend source contains no RAG-specific knowledge-base entities/controllers, document-upload API, indexing-status API, conversations/messages API, prompt-settings API, or playground-chat API. Part 20 therefore remains limited to architecture/page shells with no RAG network calls.
+- Generic bot catalog and admin bot management APIs exist, but creating or returning a bot/module code does not implement these RAG capabilities.
+- No dedicated RAG runtime code is confirmed by the repository's `UiModuleCodes` constants or an implemented RAG API. `CUSTOMER_SERVICE_RAG` is an illustrative frontend label, not a confirmed runtime code; its underscores also fail the current admin creation format in sections 6.3 and 13.3.
+- Do not invent a replacement production code, request/response DTOs, upload/chat behavior, or endpoints. A future integration requires an actual backend-supplied `uiModuleCode` and a documented RAG API contract. Existing generic bot creation alone does not satisfy that requirement.
+- This boundary is verified from repository source; no live database contents were inspected.
 
 ---
 
@@ -783,7 +792,7 @@ Admin-created codes are trimmed and converted to uppercase, contain 1 to 50 lett
   import * as signalR from "@microsoft/signalr";
 
   const connection = new signalR.HubConnectionBuilder()
-    .withUrl("http://localhost:5000/hubs/notifications", {
+    .withUrl("https://localhost:7062/hubs/notifications", {
       withCredentials: true // Transmits authentication cookies
     })
     .withAutomaticReconnect()
@@ -1048,7 +1057,7 @@ List query parameters:
 | :--- | :--- | :--- |
 | `pageNumber` | Integer | Default `1`; at least 1. |
 | `pageSize` | Integer | Default `10`; 1 through 100. |
-| `search` | Optional string | At most 255 characters; trimmed, case-insensitive substring search across full name and email. Blank search applies no filter. |
+| `search` | Optional string | At most 255 characters; trimmed substring search across full name and email. Case sensitivity follows the database collation; integration tests model a case-insensitive database. Blank search applies no filter. |
 | `isDeleted` | Optional boolean | `false` selects active users; `true` selects deactivated users; omitted includes both. |
 
 - Filters are applied together before counting/pagination. Results are ordered by `createdAt` descending, then `id` ascending for deterministic ordering of equal timestamps.
@@ -1075,7 +1084,7 @@ List query parameters:
 - Full name, email, and phone are trimmed before persistence. Passwords are hashed as supplied through `IPasswordHasherService` / the existing enhanced BCrypt implementation and configured work factor.
 - The backend generates the ID and timestamp and creates an active regular user (`isDeleted: false`). It does not establish a login session, set auth cookies, create settings, or change the administrator's login. The new user can log in through the existing user login endpoint.
 - **Success:** `201 Created`, `ApiResponse<AdminUserDto>`, message `User created successfully.`, and `Location` pointing to the detail endpoint.
-- Email uniqueness is checked case-insensitively against all regular users, including deactivated accounts. Duplicate emails return `409` with message `Email is already in use.` The existing SQL Server email unique index also protects database uniqueness; SQL Server unique-constraint errors return the same conflict response.
+- Email uniqueness follows the database collation and includes all regular users, including deactivated accounts. Integration tests model a case-insensitive database. Duplicate emails return `409` with message `Email is already in use.` The existing SQL Server email unique index also protects database uniqueness; SQL Server unique-constraint errors return the same conflict response.
 - `id`, `isDeleted`, `role`, password hashes, session fields, settings, and other unsupported JSON properties return `400`. This is admin-managed creation; no public registration endpoint is added.
 
 ### 12.4 Update User Profile
@@ -1091,7 +1100,7 @@ List query parameters:
 }
 ```
 
-- Full name/email validation, trimming, and duplicate-email handling match creation. `fullName` and `email` must be supplied. Phone defaults to empty when omitted; null is invalid.
+- Full name/email validation, trimming, and duplicate-email handling match creation. `fullName`, `email`, and `phoneNumber` must be supplied. An empty phone string is valid and clears the field; null is invalid.
 - This is a profile replacement, not a partial patch. Deactivated users can also be updated. The existing password hash, creation timestamp, deletion status, settings, resources, and sessions are preserved.
 - Updating to the current user's own email is allowed. Another user's email, including a deactivated user's email, returns `409` without changing the profile.
 - **Success:** `200`, `ApiResponse<AdminUserDto>`, message `User updated successfully.` Missing users return `404`.
@@ -1101,8 +1110,8 @@ List query parameters:
 
 | Method | Route | Behavior / success message |
 | :--- | :--- | :--- |
-| `POST` | `/api/v1/admin/users/{id}/deactivate` | Sets `IsDeleted = true`; `User deactivated successfully.` |
-| `POST` | `/api/v1/admin/users/{id}/reactivate` | Sets `IsDeleted = false`; `User reactivated successfully.` |
+| `PUT` | `/api/v1/admin/users/{id}/deactivate` | Sets `IsDeleted = true`; `User deactivated successfully.` |
+| `PUT` | `/api/v1/admin/users/{id}/reactivate` | Sets `IsDeleted = false`; `User reactivated successfully.` |
 
 - No request body is required. Both return `200`, `ApiResponse<AdminUserDto>`. Missing users return `404`.
 - Deactivation is a soft delete. It preserves the user row and related data, clears `CurrentSessionToken`, and marks active refresh tokens inactive with their expiration set to the revocation time. These changes are committed together by a single `SaveChangesAsync`.
@@ -1134,8 +1143,8 @@ Implemented with the existing Bot model, SystemAdmin roles, cookie JWT authoriza
 | `GET` | `/api/v1/admin/bots/{id}` | `200`, `ApiResponse<AdminBotDto>`; `Bot retrieved successfully.` |
 | `POST` | `/api/v1/admin/bots` | `201`, `ApiResponse<AdminBotDto>`, detail `Location`; `Bot created successfully.` |
 | `PUT` | `/api/v1/admin/bots/{id}` | `200`, `ApiResponse<AdminBotDto>`; `Bot updated successfully.` |
-| `POST` | `/api/v1/admin/bots/{id}/activate` | `200`, `ApiResponse<AdminBotDto>`; `Bot activated successfully.` |
-| `POST` | `/api/v1/admin/bots/{id}/deactivate` | `200`, `ApiResponse<AdminBotDto>`; `Bot deactivated successfully.` |
+| `PUT` | `/api/v1/admin/bots/{id}/activate` | `200`, `ApiResponse<AdminBotDto>`; `Bot activated successfully.` |
+| `PUT` | `/api/v1/admin/bots/{id}/deactivate` | `200`, `ApiResponse<AdminBotDto>`; `Bot deactivated successfully.` |
 
 IDs are positive Int32 values. Missing bots return `404` with message `Bot not found.` Nonpositive IDs fail validation with `400`; noninteger route segments do not match the route and return `404`.
 
@@ -1156,7 +1165,7 @@ interface AdminBotDto {
 
 - Responses project only these eight fields. Navigation collections, owners, user subscriptions and subscription-specific fields are excluded.
 - Admin list/detail include both active and inactive bots. List defaults: `pageNumber=1`, `pageSize=10`; page number must be at least 1 and page size 1 through 100. An offset beyond Int32 maximum returns `400`.
-- Optional `isActive=true/false` filters lifecycle state. Optional `search` is trimmed and searches name/module code by case-insensitive substring; at most 100 characters. Blank search applies no filter.
+- Optional `isActive=true/false` filters lifecycle state. Optional `search` is trimmed and searches name/module code by substring; at most 100 characters. Case sensitivity follows the database collation; integration tests model a case-insensitive database. Blank search applies no filter.
 - Filters combine before counting/pagination. Items are ordered by ID ascending. Standard pagination fields are `items`, `totalItems`, `totalPages`, and `currentPage`. Empty matches have zero totals; pages beyond the end have empty items and actual totals.
 
 ### 13.3 Create Bot and Frontend Readiness
@@ -1213,4 +1222,153 @@ interface AdminBotDto {
 - Apply migration `20261014163726_AddUniqueBotUiModuleCode` before deploying against an existing SQL Server database. It adds unique index `IX_Bots_UiModuleCode` to `Bots.UiModuleCode` and leaves existing codes unchanged. Existing duplicate codes must be resolved deliberately before the index can be applied; the migration never renames an in-use module code.
 - Migration SQL and model consistency were verified, along with relational uniqueness enforcement. No live SQL Server database was modified.
 - Integration coverage includes Admin/SuperAdmin management; anonymous/non-admin rejection on all six endpoints; stale/inactive admin checks; create/update; inactive defaults and catalog visibility; lifecycle idempotency; dynamic normalized codes; duplicate/invalid/empty codes; code immutability on used/unused bots; pagination/search/state filters; precise zero cooldown; DTO allowlisting; and SQL Server migration generation.
+
+
+---
+
+## 14. Admin UserBot / Subscription Management
+
+Implemented against the existing `UserBot` relationship, CQRS/MediatR, `IAppDbContext`, and SystemAdmin authorization conventions. Verified through relational HTTP integration tests and SQL Server migration generation on 2026-10-15.
+
+### 14.1 Authorization and Routes
+
+- Every endpoint requires `[Authorize(Roles = "Admin,SuperAdmin")]`. Send the admin authentication cookies with `withCredentials: true`.
+- The controller derives the administrative identity from `ClaimTypes.NameIdentifier` and reuses `GetCurrentAdminQuery` to verify an active `SystemAdmin` record whose stored Admin/SuperAdmin role matches the JWT. Regular users and other roles receive `403`; anonymous/invalid-token callers receive `401`. Missing/inactive/invalid admin identities receive `401`; stale administrative role claims receive `403`.
+
+| Method | Route | Success response |
+| :--- | :--- | :--- |
+| `GET` | `/api/v1/admin/subscriptions` | `200`, `ApiResponse<PaginatedResult<AdminSubscriptionDto>>`; `Subscriptions retrieved successfully.` |
+| `GET` | `/api/v1/admin/subscriptions/{id}` | `200`, `ApiResponse<AdminSubscriptionDto>`; `Subscription retrieved successfully.` |
+| `POST` | `/api/v1/admin/subscriptions` | `201`, `ApiResponse<AdminSubscriptionDto>`, detail `Location`; `Bot assigned successfully.` |
+| `DELETE` | `/api/v1/admin/subscriptions/{id}` | `200`, `ApiResponse<bool>` with `data: true`; `Subscription removed successfully.` |
+
+The route `id` is the positive Int32 `UserBot.Id`, not a user or bot ID. Missing assignment IDs return `404`, message `Subscription not found.` Nonpositive IDs fail validation with `400`; noninteger route segments return `404`.
+
+### 14.2 DTOs and Legacy Purchase Fields
+
+```typescript
+interface AdminSubscriptionDto {
+  id: number;
+  userId: string; // GUID.
+  userFullName: string;
+  userEmail: string;
+  botId: number;
+  botName: string;
+  uiModuleCode: string;
+  purchasePrice: number; // Existing legacy column, preserved for compatibility.
+  purchaseDate: string; // Existing legacy UTC timestamp; SQL datetime may omit a timezone suffix.
+  isActive: boolean; // Always true for a returned assignment: its UserBot row exists.
+}
+
+interface AssignAdminSubscriptionDto {
+  userId: string; // Required nonempty GUID.
+  botId: number; // Required positive Int32.
+}
+```
+
+- List/detail/assignment responses project only these relationship and display fields. Entity navigation collections, password hashes, refresh/session tokens, login IPs and encrypted settings are excluded.
+- Existing `PurchasePrice` and `PurchaseDate` columns and existing stored values retain their names and semantics. New admin assignments use `PurchasePrice = 0` and a current UTC `PurchaseDate`, recording creation time in the existing column. Catalog price is not copied into this field. The API creates no charges, payments, or transaction records.
+- Purchase fields are server-managed and unsupported in assignment requests. `id`, `isActive`, user/bot navigation data and other unsupported JSON fields are also rejected with `400`.
+
+### 14.3 List Filters and Presence-Based State
+
+| Query parameter | Type | Default / behavior |
+| :--- | :--- | :--- |
+| `userId` | Optional GUID | Filters assignments for the selected user; must be nonempty when supplied. |
+| `botId` | Optional integer | Filters assignments for the selected bot; must be greater than zero. |
+| `isActive` | Optional boolean | Omitted or `true`: existing relationship rows. `false`: an empty page because there is no stored inactive state. |
+| `pageNumber` | Integer | Default `1`; at least 1. |
+| `pageSize` | Integer | Default `10`; 1 through 100. |
+
+- The existing `UserBot` model has no `IsActive`, soft-delete flag, expiration, or removal history. Ownership is represented by row presence. `isActive` is a read projection of that presence, independent of `User.IsDeleted` and `Bot.IsActive`; it is not a new database field.
+- All filters combine before counting/pagination. Valid but unknown user/bot filter IDs return an empty `200` page. Malformed/invalid IDs or booleans fail validation/binding with `400`.
+- Results are ordered by `purchaseDate` descending and then assignment `id` descending. Standard pagination fields are `items`, `totalItems`, `totalPages`, and `currentPage`.
+- Empty matches return zero totals. Pages beyond the last page return empty items with actual totals and the requested page number. Pagination offsets beyond Int32 maximum return `400`.
+- Removed assignments cannot be listed or inspected; an inactive-history view would require a separate domain change. The frontend should describe removal as revoking an assignment rather than promising a recoverable inactive record.
+
+### 14.4 Assign a Bot
+
+```json
+{
+  "userId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "botId": 3
+}
+```
+
+- The backend validates both related resources exist before saving. Missing user returns `404`, `User not found.` Missing bot returns `404`, `Bot not found.` Invalid GUIDs/nonpositive bot IDs return `400`.
+- User and bot lifecycle flags remain independent of assignment presence. Admins may prepare assignments for deactivated users or inactive bots; the existing user authentication and bot catalog lifecycle checks continue applying.
+- A user can own multiple bots, and a bot can be assigned to multiple users. The same User+Bot pair can have only one current assignment. Existing duplicate pairs return `409`, message `User is already assigned to this bot.` This also applies when the linked user or bot is inactive.
+- A unique database index protects against concurrent duplicate assignments; SQL Server uniqueness errors return the same conflict response. Successful assignment creates exactly one UserBot row and returns its ID in the DTO and detail `Location` header.
+- The authenticated caller remains the admin; the body `userId` selects the assignment subject and cannot override caller authorization.
+
+### 14.5 Remove and Ownership Compatibility
+
+- `DELETE /api/v1/admin/subscriptions/{id}` physically deletes only the selected UserBot relationship. This follows the current presence-based ownership model; retaining a row with an unsupported inactive marker would still grant access through existing ownership queries.
+- User, bot, accounts, logs, settings, refresh tokens, and transaction history are retained. The removed assignment's legacy purchase fields disappear with that relationship row because the current model has no assignment-history record.
+- The existing `IUserBotService.CheckOwnershipAsync`, subscribed-bot query, ownership-required bot details, and scoped bot activity-log checks keep using `UserBots` as their source of truth. Subsequent reads stop recognizing a removed assignment; other users' assignments and the same user's other bots remain intact.
+- Inspecting or deleting an already-removed assignment returns `404`. Reassigning the same pair uses POST and creates a new relationship ID with the new-assignment legacy field defaults, not a restoration of the deleted row.
+
+### 14.6 Errors, Migration and Verification
+
+- Validation/binding errors return `400` in `ApiErrorResponse`, including `statusCode`, `message`, `path`, `method`, and `traceId`. Binding errors use `Invalid subscription management request. Supply valid values and only supported fields.` Missing resources return `404`; duplicate pairs return `409`. Authentication challenges/forbids retain existing middleware behavior and may have no JSON body.
+- Apply migration `20261014215528_AddUniqueUserBotAssignment` before deploying against an existing SQL Server database. It replaces `IX_UserBots_UserId` with unique composite index `IX_UserBots_UserId_BotId`; existing FK restrictions and purchase columns are preserved.
+- The migration does not delete, deduplicate, or rewrite assignment data. Existing duplicate user/bot pairs must be reviewed and resolved before applying the unique index, preserving any meaningful legacy purchase information.
+- Integration coverage includes Admin/SuperAdmin access; anonymous and non-admin rejection on all four endpoints; inactive/missing/stale admin identity checks; assignment, duplicate rejection and relational uniqueness; user/bot/presence filters and pagination; removal/reassignment; invalid IDs/JSON/server-managed fields; safe DTO fields; preservation of legacy metadata and related records; existing ownership-service/client endpoint behavior; and SQL Server migration generation/model consistency.
+- Tests use production controllers, authentication/session handling, CQRS and EF mappings with SQLite adaptations. Migration SQL was generated and verified; no live SQL Server database was modified.
+
+---
+
+## 15. Production CORS and Environment Configuration
+
+### 15.1 Frontend Origin Settings
+
+The API reads `Cors:AllowedOrigins` when it starts. The shared `appsettings.json` array is empty; `appsettings.Development.json` supplies the local Vite/alternative frontend origins:
+
+```json
+{
+  "Cors": {
+    "AllowedOrigins": [
+      "http://localhost:5173",
+      "http://localhost:3000"
+    ]
+  }
+}
+```
+
+- Each environment may supply its own `appsettings.{Environment}.json` with the same array structure. ASP.NET Core environment variables override the JSON settings using indexed keys such as `Cors__AllowedOrigins__0` and `Cors__AllowedOrigins__1`.
+- Staging/Production do not load Development defaults. Configure at least one explicit HTTPS origin before starting the API; missing, empty, or invalid configuration stops startup before application services run.
+- Example deployment environment values (replace example domains with deployed frontend origins):
+
+```powershell
+$env:DOTNET_ENVIRONMENT = "Production"
+$env:Cors__AllowedOrigins__0 = "https://app.example.com"
+$env:Cors__AllowedOrigins__1 = "https://admin.example.com"
+```
+
+- For Staging, select `Staging` and supply its own values, such as `https://staging.example.com`. Keep environment selectors consistent if the host also sets `ASPNETCORE_ENVIRONMENT`.
+- Supply one origin per indexed entry, not a comma-separated value. Arrays merge by index: overriding only Development index `0` retains the local alternative origin at index `1`. Staging/Production have no shared origins to inherit.
+- Restart/redeploy the API after changing origins; the policy is captured at startup. No deployed production frontend URL or secret is hardcoded in the API.
+
+### 15.2 Validation and Browser Behavior
+
+- Values must contain only an absolute HTTP(S) scheme, host, and optional port. HTTPS is mandatory outside Development. Wildcards, embedded credentials, paths, query strings, fragments, and malformed entries are rejected.
+- Outer whitespace, casing, default ports, internationalized hostnames and an optional single root slash are normalized. Duplicate normalized entries are removed. Validation errors identify the setting/index without echoing the configured value.
+- An allowed origin must match scheme, host, and port. Different subdomains, lookalike hostnames and non-default ports need their own explicit entries.
+- `FrontendPolicy` retains all methods/headers and `AllowCredentials()`. It runs between routing and authentication/authorization, including for SignalR. Allowed requests receive their exact origin in `Access-Control-Allow-Origin`, never `*`.
+- Unlisted origins receive no browser CORS permission headers; an underlying endpoint can still respond. CORS does not replace authentication or authorization. Worker API keys and n8n webhook secrets remain independently required by their existing filters; server-to-server calls need no allowed browser origin.
+
+### 15.3 Cookie and Deployment Requirements
+
+- Frontend Axios/SignalR requests keep `withCredentials: true`; Fetch uses `credentials: "include"`. Call the HTTPS API URL directly rather than relying on HTTP preflight redirects.
+- Both auth cookies retain `HttpOnly=true`, `Secure=true`, and `SameSite=None`, with explicit `Path=/` for creation/deletion and no `Domain` override (host-only). Token lifetimes and authentication behavior are unchanged.
+- Local cookie authentication uses the trusted HTTPS API at `https://localhost:7062`, launched with `dotnet run --project SaaS.Api --launch-profile https`. The Vite origin may remain `http://localhost:5173` in Development. The profile also exposes HTTP port `5037`, which should not be used for cookie authentication.
+- Production frontend and API must use HTTPS. A topology such as `https://app.example.com` calling `https://api.example.com` sends the host-only cookies to the API. Unrelated frontend/API sites also depend on browser third-party-cookie policy, which CORS cannot override.
+- Continue injecting existing signing/encryption keys, connection strings, and worker/webhook secrets through User Secrets locally or the deployment's environment/secret store. Origin configuration contains no secrets and introduces no infrastructure or schema changes.
+
+### 15.4 Verification
+
+- Configuration tests cover Development defaults, Staging/Production environment overrides, normalization/deduplication, and startup rejection of unsafe/missing values.
+- TestServer coverage exercises credentialed preflights and actual requests, unlisted origins, JWT cookie authentication, and independent worker/webhook key checks using the production CORS registration/authentication/filter implementations.
+- Token-service tests cover cookie security flags, host-only scope, and creation/deletion path across Development, Staging and Production.
+- Reference behavior: [ASP.NET Core configuration](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/?view=aspnetcore-10.0), [CORS](https://learn.microsoft.com/en-us/aspnet/core/security/cors?view=aspnetcore-10.0), and [SameSite cookies](https://learn.microsoft.com/en-us/aspnet/core/security/samesite?view=aspnetcore-10.0).
 
