@@ -7,6 +7,7 @@ import { createServer } from "vite"
 
 let server, botModulesRegistry, resolveBotModule, UnsupportedBotModuleError, defineLeadsScraperModule, scraperRunsConfig
 let postScraperModule, postScraperRunsConfig, postScraperRunSchema, postScraperRunAdapter
+let ragModuleShell
 
 before(async () => {
   // Load the real resolver through the same aliases as the application. Test
@@ -24,6 +25,7 @@ before(async () => {
   ;({ postScraperModule, postScraperRunsConfig } = await server.ssrLoadModule("/src/features/bot-modules/post-scraper/postScraper.module.ts"))
   ;({ postScraperRunSchema } = await server.ssrLoadModule("/src/features/bot-modules/post-scraper/postScraperRunSchema.ts"))
   ;({ postScraperRunAdapter } = await server.ssrLoadModule("/src/features/bot-modules/post-scraper/postScraperRunAdapter.ts"))
+  ;({ ragModuleShell } = await server.ssrLoadModule("/src/features/bot-modules/customer-service-rag/rag.module.ts"))
 })
 
 after(async () => { await server?.close() })
@@ -164,4 +166,22 @@ test("post scraper schema and adapter remain explicitly blocked without a payloa
   assert.equal(Object.isFrozen(postScraperRunSchema), true)
   assert.equal(Object.isFrozen(postScraperRunAdapter), true)
   assert.equal(Object.isFrozen(postScraperRunsConfig.table.columns), true)
+})
+
+test("RAG shell declares only conceptual pages and remains outside the production registry", () => {
+  assert.equal("uiModuleCode" in ragModuleShell, false)
+  assert.deepEqual(ragModuleShell.sidebarTabs.map((tab) => [tab.slug, tab.label]), [
+    ["knowledge-base", "Knowledge Base"], ["conversations", "Conversations"],
+    ["prompt-settings", "Prompt Settings"], ["playground", "Playground"],
+  ])
+  for (const tab of ragModuleShell.sidebarTabs) {
+    assert.equal(ragModuleShell.resolveComponent(tab.slug), tab.component)
+    assert.equal(Object.isFrozen(tab), true)
+  }
+  assert.equal(ragModuleShell.resolveComponent("unknown"), undefined)
+  assert.equal(ragModuleShell.resolveComponent("runs"), undefined)
+  assert.equal(Object.isFrozen(ragModuleShell), true)
+  assert.equal(Object.isFrozen(ragModuleShell.sidebarTabs), true)
+  assert.ok(resolveBotModule("CUSTOMER_SERVICE_RAG") instanceof UnsupportedBotModuleError)
+  assert.deepEqual(Object.keys(botModulesRegistry), ["FB-MEMBERS-SCRAPER", "FB-POSTS-SCRAPER", "FB-MEMBERS-MESSAGES-SCRAPER"])
 })
