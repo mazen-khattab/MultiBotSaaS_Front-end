@@ -351,14 +351,16 @@ interface BotDto {
 }
 ```
 
-### 6.3 Stabilized `UiModuleCode` Values
-The frontend Bot Registry dynamically mounts UI workspaces based on `uiModuleCode`. The supported codes defined in `SaaS.Domain.Constants.UiModuleCodes` are:
+### 6.3 Seeded `UiModuleCode` Values and Dynamic Modules
+The frontend Bot Registry dynamically mounts UI workspaces based on `uiModuleCode`. Module codes are dynamic: new bots may introduce new codes without a backend allowlist or enum update. The constants in `SaaS.Domain.Constants.UiModuleCodes` identify these seeded bots:
 
 | Constant Key | Exact Value | Bot Purpose |
 | :--- | :--- | :--- |
 | `FbMembersScraper` | `FB-MEMBERS-SCRAPER` | Scrapes public/group Facebook member profiles |
 | `FbPostsScraper` | `FB-POSTS-SCRAPER` | Scrapes posts and interactions from targeted Facebook groups |
 | `FbMembersMessagesScraper` | `FB-MEMBERS-MESSAGES-SCRAPER` | Dispatches automated direct messages to collected leads |
+
+Admin-created codes are trimmed and converted to uppercase, contain 1 to 50 letters/numbers in segments separated by single hyphens, and are unique and immutable through the management API. A new bot starts inactive; add its React registry/module support and deploy the frontend before explicitly activating it. See section 13 for admin endpoints and DTOs.
 
 ---
 
@@ -466,7 +468,7 @@ The frontend Bot Registry dynamically mounts UI workspaces based on `uiModuleCod
 
 #### 7.2.1 List Target Groups
 - **Method:** `GET`
-- **Route:** `/api/v1/targetgroups`
+- **Route:** `/api/v1/TargetGroups/{botId}`
 - **Auth:** `[Authorize]`
 - **Response Body (`ApiResponse<List<GroupDto>>`):**
   ```json
@@ -487,7 +489,7 @@ The frontend Bot Registry dynamically mounts UI workspaces based on `uiModuleCod
 
 #### 7.2.2 Get Target Group Details
 - **Method:** `GET`
-- **Route:** `/api/v1/targetgroups/{id}`
+- **Route:** `/api/v1/TargetGroups/{botId}/{id}`
 - **Auth:** `[Authorize]`
 - **Response Body (`ApiResponse<GroupDetailsDto>`):**
   ```json
@@ -551,7 +553,7 @@ The frontend Bot Registry dynamically mounts UI workspaces based on `uiModuleCod
 - **Query Params:**
   - `pageNumber` (default `1`)
   - `pageSize` (default `10`)
-  - `statusFilter` (optional, e.g., `"Pending"`, `"Contacted"`, `"Qualified"`)
+  - `statusFilter` (optional, e.g., `"Pending"`, `"Completed"`, `"Failed"`)
 - **Response:** `ApiResponse<PaginatedResult<LeadDto>>`
 
 #### 7.3.2 Get Messaging Preview Leads
@@ -1113,4 +1115,102 @@ List query parameters:
 - Binding failures (including unknown JSON fields) use message `Invalid user management request. Supply valid values and only supported fields.` Authentication challenge/forbid responses retain the existing middleware behavior and may have no body.
 - HTTP integration tests cover Admin/SuperAdmin access; rejection of anonymous and other roles on every endpoint; inactive/missing/stale admin identities; list/detail, pagination and search/status filters; create/update and duplicate emails; allowed response fields; soft deactivation/reactivation; login, refresh and access-cookie rejection; fresh login after reactivation; input validation; and compatibility with the real password hasher/admin login.
 - API tests use production controllers, CQRS, authentication/session handlers and EF mappings with SQLite SQL Server syntax adaptations. No live SQL Server database was modified.
+
+
+---
+
+## 13. Admin Bot Management
+
+Implemented with the existing Bot model, SystemAdmin roles, cookie JWT authorization, CQRS/MediatR validation pipeline, and `IAppDbContext` persistence. HTTP integration tests and generated SQL Server migration verification cover the behavior below as of 2026-10-14.
+
+### 13.1 Authorization and Endpoints
+
+- Every endpoint requires `[Authorize(Roles = "Admin,SuperAdmin")]` and an active `SystemAdmin` record with a current stored role matching a role in the authenticated JWT, using the existing `GetCurrentAdminQuery`.
+- Send cookies from `/api/v1/admin/auth/login` with `withCredentials: true`. Anonymous/invalid-token callers receive `401`; other roles, including `User`, `Support`, `Worker`, and the literal role `SystemAdmin`, receive `403`. Invalid/missing/inactive administrative identities receive `401`; changed roles in stale tokens receive `403`.
+
+| Method | Route | Response |
+| :--- | :--- | :--- |
+| `GET` | `/api/v1/admin/bots` | `200`, `ApiResponse<PaginatedResult<AdminBotDto>>`; `Bots retrieved successfully.` |
+| `GET` | `/api/v1/admin/bots/{id}` | `200`, `ApiResponse<AdminBotDto>`; `Bot retrieved successfully.` |
+| `POST` | `/api/v1/admin/bots` | `201`, `ApiResponse<AdminBotDto>`, detail `Location`; `Bot created successfully.` |
+| `PUT` | `/api/v1/admin/bots/{id}` | `200`, `ApiResponse<AdminBotDto>`; `Bot updated successfully.` |
+| `POST` | `/api/v1/admin/bots/{id}/activate` | `200`, `ApiResponse<AdminBotDto>`; `Bot activated successfully.` |
+| `POST` | `/api/v1/admin/bots/{id}/deactivate` | `200`, `ApiResponse<AdminBotDto>`; `Bot deactivated successfully.` |
+
+IDs are positive Int32 values. Missing bots return `404` with message `Bot not found.` Nonpositive IDs fail validation with `400`; noninteger route segments do not match the route and return `404`.
+
+### 13.2 Response DTO and List Filters
+
+```typescript
+interface AdminBotDto {
+  id: number;
+  name: string;
+  description: string | null;
+  currentPrice: number;
+  uiModuleCode: string;
+  cooldownMinutes: number;
+  isActive: boolean;
+  status: string;
+}
+```
+
+- Responses project only these eight fields. Navigation collections, owners, user subscriptions and subscription-specific fields are excluded.
+- Admin list/detail include both active and inactive bots. List defaults: `pageNumber=1`, `pageSize=10`; page number must be at least 1 and page size 1 through 100. An offset beyond Int32 maximum returns `400`.
+- Optional `isActive=true/false` filters lifecycle state. Optional `search` is trimmed and searches name/module code by case-insensitive substring; at most 100 characters. Blank search applies no filter.
+- Filters combine before counting/pagination. Items are ordered by ID ascending. Standard pagination fields are `items`, `totalItems`, `totalPages`, and `currentPage`. Empty matches have zero totals; pages beyond the end have empty items and actual totals.
+
+### 13.3 Create Bot and Frontend Readiness
+
+**Request: `CreateAdminBotDto`**
+
+```json
+{
+  "name": "Future CRM Assistant",
+  "description": "New module in development.",
+  "currentPrice": 29.99,
+  "uiModuleCode": "FUTURE-CRM-2027",
+  "cooldownMinutes": 180
+}
+```
+
+- `name` is required/nonblank, maximum 100 characters, and is trimmed before saving.
+- `currentPrice` is required, nonnegative, at most `9999999999999999.99`, with at most two decimal places, matching the existing SQL `decimal(18,2)` column. Zero is valid.
+- `description` is optional/nullable and is stored as supplied. `cooldownMinutes` is an optional nonnegative Int32 defaulting to `180`; an explicitly supplied `0` is persisted as `0`.
+- `uiModuleCode` is required/nonblank and normalized by trimming outer whitespace and applying uppercase invariant casing. The normalized value must match `^[A-Z0-9]+(?:-[A-Z0-9]+)*$` and contain at most 50 characters. Single-segment and previously unknown codes are accepted. Leading/trailing/repeated hyphens, underscores, spaces within a code, and unsafe characters are rejected.
+- Module codes are unique across all bots, including inactive bots. Duplicates after normalization return `409`, message `UiModuleCode is already in use.` The SQL Server unique index also protects concurrent creates; unique-constraint errors map to the same conflict response.
+- Every admin-created bot starts with `isActive: false` and `status: "Inactive"`. `id`, `isActive`, `status`, navigation properties and unsupported JSON fields are rejected with `400`.
+- Frontend flow: create inactive bot, implement the new code in the React Bot Registry/module, deploy frontend support, then explicitly activate through the admin endpoint. Backend activation is the administrator's readiness decision; it does not inspect a deployed React registry.
+
+### 13.4 Update Bot and Stable Module Codes
+
+**Request: `UpdateAdminBotDto`**
+
+```json
+{
+  "name": "Future CRM Assistant",
+  "description": "Module ready for release.",
+  "currentPrice": 34.99,
+  "cooldownMinutes": 60,
+  "uiModuleCode": "FUTURE-CRM-2027"
+}
+```
+
+- This replaces editable metadata: name, description, price and cooldown. Name/price are required with creation validation rules. Omitted/null description becomes null; omitted cooldown becomes `180`.
+- `uiModuleCode` is optional on update. Omitted/null preserves it. If supplied, it must have a valid format and normalize to the existing stored code. Resubmitting the same normalized code is accepted; changing it returns `409`, message `UiModuleCode cannot be changed after creation.`, without writing other metadata.
+- Codes are immutable even before a bot is active or subscribed because there is no existing safe module-code migration mechanism. The original stored code is never rewritten by update.
+- Profile updates preserve the existing lifecycle fields. `id`, `isActive`, `status` and navigation fields are unsupported request properties and return `400`.
+
+### 13.5 Activate and Deactivate
+
+- Lifecycle endpoints require no request body. Activation sets `IsActive = true` and `Status = "Active"`; deactivation sets `IsActive = false` and `Status = "Inactive"`. Repeating either action is safe.
+- Creation and deactivation keep the bot out of the existing `GET /api/v1/bots` active catalog; activation makes its dynamic module code appear there. Admin list/detail remain available for inactive bots.
+- Lifecycle writes retain metadata, module code, and related resources. This feature adds no UserBot/subscription assignment API.
+
+### 13.6 Validation, Migration, and Tests
+
+- FluentValidation/model binding failures return `400` using `ApiErrorResponse`, including `statusCode`, `message`, `path`, `method`, and `traceId`. Binding failures use `Invalid bot management request. Supply valid values and only supported fields.`
+- Duplicate or immutable-code conflicts return `409`; missing resources return `404`. Authentication challenge/forbid responses retain the existing middleware behavior and may have no JSON body.
+- Apply migration `20261014163726_AddUniqueBotUiModuleCode` before deploying against an existing SQL Server database. It adds unique index `IX_Bots_UiModuleCode` to `Bots.UiModuleCode` and leaves existing codes unchanged. Existing duplicate codes must be resolved deliberately before the index can be applied; the migration never renames an in-use module code.
+- Migration SQL and model consistency were verified, along with relational uniqueness enforcement. No live SQL Server database was modified.
+- Integration coverage includes Admin/SuperAdmin management; anonymous/non-admin rejection on all six endpoints; stale/inactive admin checks; create/update; inactive defaults and catalog visibility; lifecycle idempotency; dynamic normalized codes; duplicate/invalid/empty codes; code immutability on used/unused bots; pagination/search/state filters; precise zero cooldown; DTO allowlisting; and SQL Server migration generation.
 

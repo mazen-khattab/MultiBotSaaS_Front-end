@@ -12,7 +12,7 @@ export function GroupLink({ value }: { readonly value: string }) {
   return href ? <a href={href} target="_blank" rel="noopener noreferrer" className="break-all text-blue-600 underline">{value}</a> : <span className="break-all">{value}</span>
 }
 
-/** No local bot filtering, paging, or sorting without a published API contract. */
+/** The server scopes rows to the bot; the table does not filter or reorder them. */
 export function GroupsTable({ groups, isLoading, isFetching, error, onRetry, onSelect }: {
   readonly groups: readonly Group[]
   readonly isLoading: boolean
@@ -32,7 +32,7 @@ export function GroupsTable({ groups, isLoading, isFetching, error, onRetry, onS
     </div> },
   ], [onSelect])
 
-  return <DataTable columns={columns} data={groups} caption="All your target groups" getRowId={(group) => String(group.id)}
+  return <DataTable columns={columns} data={groups} caption="Bot target groups" getRowId={(group) => String(group.id)}
     pagination={{ mode: "none" }} isLoading={isLoading} isFetching={isFetching} error={error} onRetry={onRetry}
     emptyTitle="No target groups" emptyDescription="Add a target group for the current bot." />
 }

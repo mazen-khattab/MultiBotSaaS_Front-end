@@ -10,7 +10,7 @@ export const groupListSchema = z.object({
   isActive: z.boolean(),
 })
 
-// Strip undocumented properties rather than inventing bot scope from them.
+// Bot scope comes from the requested route, not undocumented response fields.
 export const groupDetailSchema = groupListSchema.extend({
   configJson: z.string(),
   relatedLeadsCount: z.number().int().nonnegative(),

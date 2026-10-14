@@ -9,7 +9,7 @@ import type { CreateRunDto, CreateRunResult, RunsListParams } from "@/features/r
 /** Cookie auth and error/refresh handling come from the shared API client. */
 async function createRun(dto: CreateRunDto): Promise<CreateRunResult> {
   try {
-    const response = await api.post<unknown>("/api/v1/runs", dto)
+    const response = await api.post<unknown>("/api/v1/scrapes", dto)
     if (!isApiResponse(response.data)) throw normalizeApiError(response.data)
     const runId = response.data.data
     if (typeof runId !== "number" || !Number.isInteger(runId) || runId <= 0 || runId > 2_147_483_647) {
@@ -25,17 +25,17 @@ async function createRun(dto: CreateRunDto): Promise<CreateRunResult> {
 export const RunsService = {
   createRun,
   async getRuns(params: RunsListParams = {}, signal?: AbortSignal) {
-    const response = await api.get<unknown>("/api/v1/runs", { params, signal })
+    const response = await api.get<unknown>("/api/v1/scrapes", { params, signal })
     return readApiData(response.data, runsPageSchema)
   },
   async getRun(id: number, signal?: AbortSignal) {
-    const response = await api.get<unknown>(`/api/v1/runs/${id}`, { signal })
+    const response = await api.get<unknown>(`/api/v1/scrapes/${id}`, { signal })
     const run = readApiData(response.data, runSchema)
     if (run.id !== id) throw normalizeApiError({ message: "The server returned a different run." })
     return run
   },
   async cancelRun(id: number): Promise<void> {
-    const response = await api.post<unknown>(`/api/v1/runs/${id}/cancel`)
+    const response = await api.post<unknown>(`/api/v1/scrapes/${id}/cancel`)
     readApiData(response.data, z.literal(true))
   },
 }

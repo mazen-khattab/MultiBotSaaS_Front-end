@@ -34,26 +34,24 @@ No bot-specific configuration schema, URL domain rule, or business validation
 is invented; the backend owns those rules. Configuration must be entered
 explicitly. Unsafe server URL schemes remain readable text without a link.
 
-## Remaining scoping limitation
+## Bot-scoped reads
 
-The list endpoint has no documented bot filter, and its DTO has no `botId`.
-The frontend therefore cannot guarantee workspace-specific group membership.
-Every workspace shares the user-wide query and displays the complete returned
-list, with an explicit explanation in the page. Creation uses the current
-workspace's numeric botId. Edit/delete act on the explicitly selected group,
-wherever it is used. There is no guessed query parameter, client bot filter,
-detail fan-out, or inferred group eligibility for runs.
-
-To support a workspace-specific list, the backend contract must define a
-bot-scoped list endpoint/filter with enforced ownership, or expose documented
-membership data. This remains deferred rather than simulated in the frontend.
+The user's endpoint update on 2026-10-14 resolves the previous list-scoping
+limitation. List reads use `GET /api/v1/TargetGroups/{botId}` and details use
+`GET /api/v1/TargetGroups/{botId}/{id}`. These are path parameters, matching
+the supplied routes. The backend scopes the results; no local bot filter or
+detail fan-out is needed. The page displays the groups for its current bot.
+List and detail query keys both include botId, so changing workspaces cannot
+reuse another bot's cached results. Creation continues to supply botId in the
+body, while update/delete retain their existing routes and payloads.
 
 ## Cache and write behavior
 
 Create/update/delete reconcile every group list and detail through the groups
 query prefix. Reconciliation also runs after a failed response, since a write
 may have been applied before its response was lost. Successful deletion removes
-only the selected group's detail cache; unrelated details remain. Mutation
+the selected group's details across all bot-scoped caches; unrelated details
+remain. The ID-only detail key is used as the deletion prefix. Mutation
 response data never enters the read cache. Automatic write retries and rapid
 duplicate submissions are blocked, and dialogs cannot be dismissed while saving.
 Read requests receive Query's abort signal. Other feature caches are preserved.
@@ -63,13 +61,13 @@ Read requests receive Query's abort signal. Other feature caches are preserved.
 - [x] Complete CRUD service, hooks, table, form, dialogs, and workspace routing.
 - [x] URL casing aligned with the live V2 contract in adapters and write DTOs.
 - [x] Mutation reconciliation without assuming returned UserId is GroupId.
-- [x] Historical security caveat and remaining bot-scoping limitation documented.
+- [x] Historical security caveat and bot-scoped read routes documented.
 
 Regression tests exercise the actual service, hooks, page, registry, and workspace
 route with test-only HTTP adapters. They cover exact routes/payloads, credential
 auth, abort signals, response validation, cache reconciliation, duplicate writes,
 fresh edit defaults, confirmation, failed writes, retry states, URL safety, JSON
-validation, unfiltered reads, and switching workspace creation context.
+validation, bot-scoped reads/cache isolation, and switching workspace context.
 
 `npm run typecheck`, `npm run lint`, `npm run build`, and `git diff --check`
 passed. The full suite (`npm test -- --test-concurrency=1`) passed all 178 tests,
@@ -81,3 +79,15 @@ existing approximately 503 kB main-chunk warning; groups are loaded separately.
 Live backend authentication and CRUD have not been exercised; tests validate the
 frontend against the repository contract. Leads, messaging, and run configuration
 remain outside Part 16. External plan files are unchanged.
+
+### Bot-scoped endpoint follow-up validation
+
+Typecheck, lint, build, and Git whitespace checks passed after the endpoint
+update. All 15 group tests, 19 shared query tests, and the isolated group workspace
+route regression passed, covering separate list/detail caches per bot and
+deletion cleanup across bot scopes.
+
+The broader workspace run had one separate Leads navigation failure: the current
+LeadsService prefix is `/api/v1/Leads`, while that test fixture still expects
+`/api/leads`. That existing service change is preserved; this update only changes
+target-group read routes and their integration. Live backend CRUD is not tested.

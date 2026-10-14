@@ -93,7 +93,7 @@ test("the production registry contains only exact backend codes and remains immu
   for (const code of Object.keys(botModulesRegistry)) {
     const module = resolveBotModule(code)
     assert.equal(module.uiModuleCode, code)
-    assert.deepEqual(module.sidebarTabs.map((tab) => tab.slug), ["runs", "connected-accounts", "groups"])
+    assert.deepEqual(module.sidebarTabs.map((tab) => tab.slug), ["runs", "connected-accounts", "groups", "leads", "messaging-preview"])
     assert.equal(module.sidebarTabs[0].config.capabilities.canRetryRun, false)
   }
   assert.ok(resolveBotModule("FB_LEADS_GEN") instanceof UnsupportedBotModuleError)

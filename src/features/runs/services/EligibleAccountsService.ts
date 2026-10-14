@@ -12,6 +12,11 @@ export const connectedAccountSchema = z.object({
 export type ConnectedAccountDto = z.infer<typeof connectedAccountSchema>
 
 export const EligibleAccountsService = {
+  /** The account picker uses the documented equivalent botId path route. */
+  async getEligibleAccountsByBotId(botId: number, signal?: AbortSignal) {
+    const response = await api.get<unknown>(`/api/v1/connectedaccounts/eligible/${botId}`, { signal })
+    return readApiData(response.data, connectedAccountSchema.array())
+  },
   async getEligibleAccounts(botId: number, signal?: AbortSignal) {
     // Use one canonical route. Eligibility, expiry, and ownership are server rules.
     const response = await api.get<unknown>("/api/v1/connectedaccounts/eligible", { params: { botId }, signal })

@@ -342,16 +342,57 @@ test("real connected-accounts route loads the current bot's account list", async
   assert.equal(screen.getByRole("link", { name: "Connected accounts" }).getAttribute("aria-current"), "page");
 });
 
-test("real groups route loads an unfiltered user-wide list", async () => {
+test("real groups route loads the current bot's target groups", async () => {
   api.defaults.adapter = async (config) => {
     if (config.url === `/api/v1/bots/${liveBot.id}`) return apiResponse(config, liveBot);
-    assert.equal(config.url, "/api/v1/targetgroups");
+    assert.equal(config.url, `/api/v1/TargetGroups/${liveBot.id}`);
     assert.equal(config.params, undefined);
     return apiResponse(config, [{ id: 5, groupName: "Workspace group", groupUrl: "https://example.test/group", isActive: true }]);
   };
   mount(buildBotTabPath(String(liveBot.id), "groups"), { routes: appRoutes });
   await screen.findByText("Workspace group", {}, { timeout: 5000 });
   assert.equal(screen.getByRole("link", { name: "Target groups" }).getAttribute("aria-current"), "page");
+});
+
+test("lead listing navigates to a separate quota preview and account picker dispatches its recipients", async () => {
+  const lead = { leadId: 101, leadFormattedId: "LED-#101", profileName: "Listed lead", profileUrl: "https://example.test/list", aiMessage: "List message", fromGroup: "Source", status: "Pending", createdAt: "2026-10-14T12:00:00Z" };
+  const previewLead = { leadId: 201, leadNumber: "LED-#201", profileName: "Available recipient", profileUrl: "https://example.test/preview", aiMessage: "Preview message", status: "Pending" };
+  let posts = 0;
+  api.defaults.adapter = async (config) => {
+    if (config.url === `/api/v1/bots/${liveBot.id}`) return apiResponse(config, liveBot);
+    if (config.url === `/api/leads/leads/${liveBot.id}`) {
+      assert.deepEqual(config.params, { pageNumber: 1, pageSize: 10 });
+      return apiResponse(config, { items: [lead], currentPage: 1, totalItems: 1, totalPages: 1 });
+    }
+    if (config.url === `/api/leads/bot/messaging-preview/${liveBot.id}`) return apiResponse(config, { dailyMessageLimit: 30, messagesSent: 5, allowedToProcessCount: 25, leads: [previewLead] });
+    if (config.url === `/api/v1/connectedaccounts/eligible/${liveBot.id}`) return apiResponse(config, [{ id: 12, displayName: "Messaging account", platform: "Facebook", expiredAt: "2026-10-25T14:30:00Z", isActive: true }]);
+    assert.equal(config.url, "/api/v1/worker/dispatch-messaging");
+    assert.equal(config.method, "post");
+    assert.equal(config.withCredentials, true);
+    assert.equal(config.headers.has("x-worker-api-key"), false);
+    assert.deepEqual(JSON.parse(config.data), { botId: liveBot.id, accountId: 12, leadIds: [201] });
+    posts++;
+    return apiResponse(config, { jobId: 85, status: "Pending", totalLeadsCount: 1 });
+  };
+  mount(buildBotTabPath(String(liveBot.id), "leads"), { routes: appRoutes });
+  await screen.findByText("Listed lead", {}, { timeout: 5000 });
+  assert.equal(screen.getByRole("link", { name: "Leads" }).getAttribute("aria-current"), "page");
+  fireEvent.click(within(screen.getByRole("region", { name: "Leads" })).getByRole("link", { name: "Available leads" }));
+  await screen.findByText("Available recipient", {}, { timeout: 5000 });
+  assert.equal(mountedRouter.state.location.pathname, buildBotTabPath(String(liveBot.id), "messaging-preview"));
+  assert.equal(screen.queryByText("Listed lead"), null);
+  assert.equal(screen.getByRole("link", { name: "Available leads" }).getAttribute("aria-current"), "page");
+  fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+  await screen.findByRole("dialog");
+  await waitFor(() => assert.equal(screen.getByLabelText("Connected account").disabled, false));
+  assert.equal(posts, 0);
+  fireEvent.change(screen.getByLabelText("Connected account"), { target: { value: "12" } });
+  fireEvent.click(screen.getByRole("button", { name: "Send", exact: true }));
+  await screen.findByText(/Messaging job #85 accepted/);
+  assert.equal(posts, 1);
+  assert.equal(screen.queryByRole("dialog"), null);
+  fireEvent.click(screen.getByRole("link", { name: "Back to leads" }));
+  await screen.findByText("Listed lead");
 });
 
 test("sidebar preserves registry order, encodes links, and opens only the selected tab", async () => {

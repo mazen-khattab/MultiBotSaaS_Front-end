@@ -17,10 +17,7 @@ import { DataTable } from "@/shared/components/data-table/DataTable";
 import { ApiErrorAlert } from "@/shared/components/feedback/ApiErrorAlert";
 import { Button } from "@/shared/ui/button";
 
-interface GenericRunsPageProps<
-  TInput extends FieldValues,
-  TOutput extends FieldValues = TInput,
-> {
+interface GenericRunsPageProps<TInput extends FieldValues, TOutput extends FieldValues = TInput> {
   readonly botId: string;
   readonly config: RunsPageConfig<TInput, TOutput>;
   // Features supply query-backed select data and readiness, never the renderer.
@@ -29,10 +26,7 @@ interface GenericRunsPageProps<
 }
 
 /** Own a session per bot so late submissions cannot update another workspace. */
-function RunsPageSession<
-  TInput extends FieldValues,
-  TOutput extends FieldValues = TInput,
->({
+function RunsPageSession<TInput extends FieldValues, TOutput extends FieldValues = TInput>({
   botId,
   config,
   options,
@@ -47,8 +41,7 @@ function RunsPageSession<
   );
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const filterId = useId();
-  const canStart =
-    config.capabilities.canCreateRun && config.startRun !== undefined;
+  const canStart = config.capabilities.canCreateRun && config.startRun !== undefined;
   const runs = useRuns(
     { botId: Number(botId), pageNumber, pageSize, statusFilter },
     config.capabilities.canListRuns,
@@ -69,21 +62,21 @@ function RunsPageSession<
   // Merge feature-owned group/other options with the server's eligible accounts.
   const formOptions: DynamicSelectOptions = config.startRun
     ? {
-        ...options,
-        [config.startRun.accountOptionsProvider]: {
-          items: (eligible.data ?? []).map((account) => ({
-            value: String(account.id),
-            label: account.displayName,
-          })),
-          isLoading: eligible.isPending,
-          error: eligible.isError
-            ? "Unable to load eligible accounts."
-            : undefined,
-          onRetry: () => {
-            void eligible.refetch();
-          },
+      ...options,
+      [config.startRun.accountOptionsProvider]: {
+        items: (eligible.data ?? []).map((account) => ({
+          value: String(account.id),
+          label: account.displayName,
+        })),
+        isLoading: eligible.isPending,
+        error: eligible.isError
+          ? "Unable to load eligible accounts."
+          : undefined,
+        onRetry: () => {
+          void eligible.refetch();
         },
-      }
+      },
+    }
     : (options ?? {});
   // Keep action cells stable while refetching so pending/error state survives
   // query updates for the same row, including a rejected cancellation.
@@ -238,9 +231,6 @@ function RunsPageSession<
 }
 
 /** Module wrappers bind their typed registry config; no bot schema is assumed. */
-export default function GenericRunsPage<
-  TInput extends FieldValues,
-  TOutput extends FieldValues = TInput,
->(props: GenericRunsPageProps<TInput, TOutput>) {
+export default function GenericRunsPage<TInput extends FieldValues, TOutput extends FieldValues = TInput>(props: GenericRunsPageProps<TInput, TOutput>) {
   return <RunsPageSession key={props.botId} {...props} />;
 }

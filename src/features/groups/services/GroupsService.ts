@@ -8,6 +8,7 @@ import { groupDetailSchema, groupListSchema, toCreateGroupDto, toUpdateGroupDto 
 import type { CreateGroupInput, UpdateGroupInput } from "@/features/groups/types/groups.types"
 
 const endpoint = "/api/v1/targetgroups"
+const readEndpoint = "/api/v1/TargetGroups"
 
 /** Create/update data is unspecified in V2 and must never become a group ID. */
 async function save(method: "post" | "put", url: string, input: UpdateGroupInput) {
@@ -20,13 +21,13 @@ export const GroupsService = {
   create(input: CreateGroupInput): Promise<void> {
     return save("post", endpoint, toCreateGroupDto(input))
   },
-  async getAll(signal?: AbortSignal) {
-    // V2 supplies no botId query parameter or botId property for this endpoint.
-    const response = await api.get<unknown>(endpoint, { signal })
+  async getAll(botId: number, signal?: AbortSignal) {
+    // The updated read routes scope results on the server using the bot path.
+    const response = await api.get<unknown>(`${readEndpoint}/${botId}`, { signal })
     return readApiData(response.data, groupListSchema.array())
   },
-  async getById(id: number, signal?: AbortSignal) {
-    const response = await api.get<unknown>(`${endpoint}/${id}`, { signal })
+  async getById(botId: number, id: number, signal?: AbortSignal) {
+    const response = await api.get<unknown>(`${readEndpoint}/${botId}/${id}`, { signal })
     const group = readApiData(response.data, groupDetailSchema)
     if (group.id !== id) throw normalizeApiError({ message: "The server returned a different target group." })
     return group
