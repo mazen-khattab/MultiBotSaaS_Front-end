@@ -5,7 +5,7 @@ import { House } from "lucide-react"
 import { lazy } from "react"
 import { createServer } from "vite"
 
-let server, botModulesRegistry, resolveBotModule, UnsupportedBotModuleError
+let server, botModulesRegistry, resolveBotModule, UnsupportedBotModuleError, defineLeadsScraperModule, scraperRunsConfig
 
 before(async () => {
   // Load the real resolver through the same aliases as the application. Test
@@ -18,6 +18,8 @@ before(async () => {
   ;({ botModulesRegistry } = await server.ssrLoadModule("/src/registry/botModulesRegistry.ts"))
   ;({ resolveBotModule } = await server.ssrLoadModule("/src/registry/resolveBotModule.ts"))
   ;({ UnsupportedBotModuleError } = await server.ssrLoadModule("/src/registry/botRegistry.errors.ts"))
+  ;({ defineLeadsScraperModule } = await server.ssrLoadModule("/src/registry/definitions/leadsScraper.shared.ts"))
+  ;({ scraperRunsConfig } = await server.ssrLoadModule("/src/registry/definitions/scraperModules.ts"))
 })
 
 after(async () => { await server?.close() })
@@ -100,4 +102,36 @@ test("the production registry contains only exact backend codes and remains immu
   assert.equal(Object.isFrozen(botModulesRegistry), true)
   assert.throws(() => { botModulesRegistry[definition.uiModuleCode] = definition }, TypeError)
   assert.ok(resolveBotModule(definition.uiModuleCode) instanceof UnsupportedBotModuleError)
+})
+
+test("shared composition omits unsupported tabs and direct resolution for every capability combination", () => {
+  for (const supportsGroups of [false, true]) {
+    for (const supportsLeads of [false, true]) {
+      for (const supportsRuns of [false, true]) {
+        const module = defineLeadsScraperModule({
+          uiModuleCode: "TEST-ONLY-SCRAPER", supportsGroups, supportsLeads, supportsRuns,
+          ...(supportsRuns ? { runsConfig: scraperRunsConfig } : {}),
+        })
+        const expected = [
+          ...(supportsRuns ? ["runs"] : []), "connected-accounts",
+          ...(supportsGroups ? ["groups"] : []),
+          ...(supportsLeads ? ["leads", "messaging-preview"] : []),
+        ]
+        assert.deepEqual(module.sidebarTabs.map((tab) => tab.slug), expected)
+        assert.deepEqual(module.scraperCapabilities, { supportsGroups, supportsLeads, supportsRuns })
+        for (const slug of ["runs", "connected-accounts", "groups", "leads", "messaging-preview", "logs", "missing"]) {
+          assert.equal(module.resolveComponent(slug), module.sidebarTabs.find((tab) => tab.slug === slug)?.component)
+        }
+        assert.deepEqual(Object.keys(module.pageConfigs), supportsRuns ? ["runs"] : [])
+        if (supportsRuns) assert.equal(module.pageConfigs.runs, scraperRunsConfig)
+        assert.equal(Object.isFrozen(module), true)
+        assert.equal(Object.isFrozen(module.scraperCapabilities), true)
+        assert.equal(Object.isFrozen(module.sidebarTabs), true)
+        assert.equal(module.sidebarTabs.every(Object.isFrozen), true)
+        assert.equal(Object.isFrozen(module.pageConfigs), true)
+        // Building a definition must never install an example code globally.
+        assert.ok(resolveBotModule(module.uiModuleCode) instanceof UnsupportedBotModuleError)
+      }
+    }
+  }
 })

@@ -134,7 +134,7 @@ const failure = (config, status, message) =>
         isSuccess: false,
         statusCode: status,
         message,
-        path: "/api/v1/runs",
+        path: "/api/v1/scrapes",
         method: "POST",
         traceId: "test-trace",
       },
@@ -240,7 +240,7 @@ test("create service sends the exact documented DTO with cookie credentials and 
   let calls = 0;
   api.defaults.adapter = async (request) => {
     calls += 1;
-    assert.equal(request.url, "/api/v1/runs");
+    assert.equal(request.url, "/api/v1/scrapes");
     assert.equal(request.method, "post");
     assert.equal(request.withCredentials, true);
     assert.equal(request.headers.has("Authorization"), false);
@@ -610,7 +610,7 @@ test("run service list/detail/cancel use documented endpoints and reject malform
   };
   api.defaults.adapter = async (request) => {
     requests.push(request);
-    if (request.url === "/api/v1/runs")
+    if (request.url === "/api/v1/scrapes")
       return success(
         request,
         runPage([runFixture({ status: "Cancelled" })], 2, 2, 26),
@@ -627,9 +627,9 @@ test("run service list/detail/cancel use documented endpoints and reject malform
   assert.deepEqual(
     requests.map((request) => [request.method, request.url]),
     [
-      ["get", "/api/v1/runs"],
-      ["get", "/api/v1/runs/42"],
-      ["post", "/api/v1/runs/42/cancel"],
+      ["get", "/api/v1/scrapes"],
+      ["get", "/api/v1/scrapes/42"],
+      ["post", "/api/v1/scrapes/42/cancel"],
     ],
   );
   assert.deepEqual(requests[0].params, filters);
@@ -650,7 +650,7 @@ test("run service list/detail/cancel use documented endpoints and reject malform
 test("history pagination, page size, and status filtering send server params and reset to page one", async () => {
   const filters = [];
   api.defaults.adapter = async (request) => {
-    assert.equal(request.url, "/api/v1/runs");
+    assert.equal(request.url, "/api/v1/scrapes");
     filters.push({ ...request.params });
     const page = request.params.pageNumber;
     return success(
@@ -698,7 +698,7 @@ test("only Running runs without an end time expose Cancel, and cancelled status 
   api.defaults.adapter = async (request) => {
     assert.doesNotMatch(request.url, /retry/);
     if (request.url.endsWith("/cancel")) {
-      assert.equal(request.url, "/api/v1/runs/42/cancel");
+      assert.equal(request.url, "/api/v1/scrapes/42/cancel");
       writes += 1;
       cancelled = true;
       return success(request, true);
@@ -748,19 +748,19 @@ test("details load on demand and refetch their final cancellation state", async 
     }
     return success(
       request,
-      request.url === "/api/v1/runs" ? runPage([row]) : row,
+      request.url === "/api/v1/scrapes" ? runPage([row]) : row,
     );
   };
   mount({ config: historyConfig });
   fireEvent.click(await screen.findByRole("button", { name: "View run #42" }));
   await screen.findByText("Running", { selector: "dd" });
-  assert.equal(urls.filter((url) => url === "/api/v1/runs/42").length, 1);
+  assert.equal(urls.filter((url) => url === "/api/v1/scrapes/42").length, 1);
   fireEvent.click(screen.getByRole("button", { name: "Close details" }));
   fireEvent.click(screen.getByRole("button", { name: "Cancel run #42" }));
   await screen.findByText("Cancelled", { selector: "td" });
   fireEvent.click(screen.getByRole("button", { name: "View run #42" }));
   await screen.findByText("Cancelled", { selector: "dd" });
-  assert.equal(urls.filter((url) => url === "/api/v1/runs/42").length, 2);
+  assert.equal(urls.filter((url) => url === "/api/v1/scrapes/42").length, 2);
 });
 
 test("cancel prevents duplicate writes and explains server rejection without retries", async () => {

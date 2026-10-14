@@ -1048,7 +1048,7 @@ List query parameters:
 | :--- | :--- | :--- |
 | `pageNumber` | Integer | Default `1`; at least 1. |
 | `pageSize` | Integer | Default `10`; 1 through 100. |
-| `search` | Optional string | At most 255 characters; trimmed, case-insensitive substring search across full name and email. Blank search applies no filter. |
+| `search` | Optional string | At most 255 characters; trimmed substring search across full name and email. Case sensitivity follows the database collation; integration tests model a case-insensitive database. Blank search applies no filter. |
 | `isDeleted` | Optional boolean | `false` selects active users; `true` selects deactivated users; omitted includes both. |
 
 - Filters are applied together before counting/pagination. Results are ordered by `createdAt` descending, then `id` ascending for deterministic ordering of equal timestamps.
@@ -1075,7 +1075,7 @@ List query parameters:
 - Full name, email, and phone are trimmed before persistence. Passwords are hashed as supplied through `IPasswordHasherService` / the existing enhanced BCrypt implementation and configured work factor.
 - The backend generates the ID and timestamp and creates an active regular user (`isDeleted: false`). It does not establish a login session, set auth cookies, create settings, or change the administrator's login. The new user can log in through the existing user login endpoint.
 - **Success:** `201 Created`, `ApiResponse<AdminUserDto>`, message `User created successfully.`, and `Location` pointing to the detail endpoint.
-- Email uniqueness is checked case-insensitively against all regular users, including deactivated accounts. Duplicate emails return `409` with message `Email is already in use.` The existing SQL Server email unique index also protects database uniqueness; SQL Server unique-constraint errors return the same conflict response.
+- Email uniqueness follows the database collation and includes all regular users, including deactivated accounts. Integration tests model a case-insensitive database. Duplicate emails return `409` with message `Email is already in use.` The existing SQL Server email unique index also protects database uniqueness; SQL Server unique-constraint errors return the same conflict response.
 - `id`, `isDeleted`, `role`, password hashes, session fields, settings, and other unsupported JSON properties return `400`. This is admin-managed creation; no public registration endpoint is added.
 
 ### 12.4 Update User Profile
@@ -1091,7 +1091,7 @@ List query parameters:
 }
 ```
 
-- Full name/email validation, trimming, and duplicate-email handling match creation. `fullName` and `email` must be supplied. Phone defaults to empty when omitted; null is invalid.
+- Full name/email validation, trimming, and duplicate-email handling match creation. `fullName`, `email`, and `phoneNumber` must be supplied. An empty phone string is valid and clears the field; null is invalid.
 - This is a profile replacement, not a partial patch. Deactivated users can also be updated. The existing password hash, creation timestamp, deletion status, settings, resources, and sessions are preserved.
 - Updating to the current user's own email is allowed. Another user's email, including a deactivated user's email, returns `409` without changing the profile.
 - **Success:** `200`, `ApiResponse<AdminUserDto>`, message `User updated successfully.` Missing users return `404`.
@@ -1101,8 +1101,8 @@ List query parameters:
 
 | Method | Route | Behavior / success message |
 | :--- | :--- | :--- |
-| `POST` | `/api/v1/admin/users/{id}/deactivate` | Sets `IsDeleted = true`; `User deactivated successfully.` |
-| `POST` | `/api/v1/admin/users/{id}/reactivate` | Sets `IsDeleted = false`; `User reactivated successfully.` |
+| `PUT` | `/api/v1/admin/users/{id}/deactivate` | Sets `IsDeleted = true`; `User deactivated successfully.` |
+| `PUT` | `/api/v1/admin/users/{id}/reactivate` | Sets `IsDeleted = false`; `User reactivated successfully.` |
 
 - No request body is required. Both return `200`, `ApiResponse<AdminUserDto>`. Missing users return `404`.
 - Deactivation is a soft delete. It preserves the user row and related data, clears `CurrentSessionToken`, and marks active refresh tokens inactive with their expiration set to the revocation time. These changes are committed together by a single `SaveChangesAsync`.
@@ -1134,8 +1134,8 @@ Implemented with the existing Bot model, SystemAdmin roles, cookie JWT authoriza
 | `GET` | `/api/v1/admin/bots/{id}` | `200`, `ApiResponse<AdminBotDto>`; `Bot retrieved successfully.` |
 | `POST` | `/api/v1/admin/bots` | `201`, `ApiResponse<AdminBotDto>`, detail `Location`; `Bot created successfully.` |
 | `PUT` | `/api/v1/admin/bots/{id}` | `200`, `ApiResponse<AdminBotDto>`; `Bot updated successfully.` |
-| `POST` | `/api/v1/admin/bots/{id}/activate` | `200`, `ApiResponse<AdminBotDto>`; `Bot activated successfully.` |
-| `POST` | `/api/v1/admin/bots/{id}/deactivate` | `200`, `ApiResponse<AdminBotDto>`; `Bot deactivated successfully.` |
+| `PUT` | `/api/v1/admin/bots/{id}/activate` | `200`, `ApiResponse<AdminBotDto>`; `Bot activated successfully.` |
+| `PUT` | `/api/v1/admin/bots/{id}/deactivate` | `200`, `ApiResponse<AdminBotDto>`; `Bot deactivated successfully.` |
 
 IDs are positive Int32 values. Missing bots return `404` with message `Bot not found.` Nonpositive IDs fail validation with `400`; noninteger route segments do not match the route and return `404`.
 
@@ -1156,7 +1156,7 @@ interface AdminBotDto {
 
 - Responses project only these eight fields. Navigation collections, owners, user subscriptions and subscription-specific fields are excluded.
 - Admin list/detail include both active and inactive bots. List defaults: `pageNumber=1`, `pageSize=10`; page number must be at least 1 and page size 1 through 100. An offset beyond Int32 maximum returns `400`.
-- Optional `isActive=true/false` filters lifecycle state. Optional `search` is trimmed and searches name/module code by case-insensitive substring; at most 100 characters. Blank search applies no filter.
+- Optional `isActive=true/false` filters lifecycle state. Optional `search` is trimmed and searches name/module code by substring; at most 100 characters. Case sensitivity follows the database collation; integration tests model a case-insensitive database. Blank search applies no filter.
 - Filters combine before counting/pagination. Items are ordered by ID ascending. Standard pagination fields are `items`, `totalItems`, `totalPages`, and `currentPage`. Empty matches have zero totals; pages beyond the end have empty items and actual totals.
 
 ### 13.3 Create Bot and Frontend Readiness
@@ -1213,4 +1213,97 @@ interface AdminBotDto {
 - Apply migration `20261014163726_AddUniqueBotUiModuleCode` before deploying against an existing SQL Server database. It adds unique index `IX_Bots_UiModuleCode` to `Bots.UiModuleCode` and leaves existing codes unchanged. Existing duplicate codes must be resolved deliberately before the index can be applied; the migration never renames an in-use module code.
 - Migration SQL and model consistency were verified, along with relational uniqueness enforcement. No live SQL Server database was modified.
 - Integration coverage includes Admin/SuperAdmin management; anonymous/non-admin rejection on all six endpoints; stale/inactive admin checks; create/update; inactive defaults and catalog visibility; lifecycle idempotency; dynamic normalized codes; duplicate/invalid/empty codes; code immutability on used/unused bots; pagination/search/state filters; precise zero cooldown; DTO allowlisting; and SQL Server migration generation.
+
+
+---
+
+## 14. Admin UserBot / Subscription Management
+
+Implemented against the existing `UserBot` relationship, CQRS/MediatR, `IAppDbContext`, and SystemAdmin authorization conventions. Verified through relational HTTP integration tests and SQL Server migration generation on 2026-10-15.
+
+### 14.1 Authorization and Routes
+
+- Every endpoint requires `[Authorize(Roles = "Admin,SuperAdmin")]`. Send the admin authentication cookies with `withCredentials: true`.
+- The controller derives the administrative identity from `ClaimTypes.NameIdentifier` and reuses `GetCurrentAdminQuery` to verify an active `SystemAdmin` record whose stored Admin/SuperAdmin role matches the JWT. Regular users and other roles receive `403`; anonymous/invalid-token callers receive `401`. Missing/inactive/invalid admin identities receive `401`; stale administrative role claims receive `403`.
+
+| Method | Route | Success response |
+| :--- | :--- | :--- |
+| `GET` | `/api/v1/admin/subscriptions` | `200`, `ApiResponse<PaginatedResult<AdminSubscriptionDto>>`; `Subscriptions retrieved successfully.` |
+| `GET` | `/api/v1/admin/subscriptions/{id}` | `200`, `ApiResponse<AdminSubscriptionDto>`; `Subscription retrieved successfully.` |
+| `POST` | `/api/v1/admin/subscriptions` | `201`, `ApiResponse<AdminSubscriptionDto>`, detail `Location`; `Bot assigned successfully.` |
+| `DELETE` | `/api/v1/admin/subscriptions/{id}` | `200`, `ApiResponse<bool>` with `data: true`; `Subscription removed successfully.` |
+
+The route `id` is the positive Int32 `UserBot.Id`, not a user or bot ID. Missing assignment IDs return `404`, message `Subscription not found.` Nonpositive IDs fail validation with `400`; noninteger route segments return `404`.
+
+### 14.2 DTOs and Legacy Purchase Fields
+
+```typescript
+interface AdminSubscriptionDto {
+  id: number;
+  userId: string; // GUID.
+  userFullName: string;
+  userEmail: string;
+  botId: number;
+  botName: string;
+  uiModuleCode: string;
+  purchasePrice: number; // Existing legacy column, preserved for compatibility.
+  purchaseDate: string; // Existing legacy UTC timestamp; SQL datetime may omit a timezone suffix.
+  isActive: boolean; // Always true for a returned assignment: its UserBot row exists.
+}
+
+interface AssignAdminSubscriptionDto {
+  userId: string; // Required nonempty GUID.
+  botId: number; // Required positive Int32.
+}
+```
+
+- List/detail/assignment responses project only these relationship and display fields. Entity navigation collections, password hashes, refresh/session tokens, login IPs and encrypted settings are excluded.
+- Existing `PurchasePrice` and `PurchaseDate` columns and existing stored values retain their names and semantics. New admin assignments use `PurchasePrice = 0` and a current UTC `PurchaseDate`, recording creation time in the existing column. Catalog price is not copied into this field. The API creates no charges, payments, or transaction records.
+- Purchase fields are server-managed and unsupported in assignment requests. `id`, `isActive`, user/bot navigation data and other unsupported JSON fields are also rejected with `400`.
+
+### 14.3 List Filters and Presence-Based State
+
+| Query parameter | Type | Default / behavior |
+| :--- | :--- | :--- |
+| `userId` | Optional GUID | Filters assignments for the selected user; must be nonempty when supplied. |
+| `botId` | Optional integer | Filters assignments for the selected bot; must be greater than zero. |
+| `isActive` | Optional boolean | Omitted or `true`: existing relationship rows. `false`: an empty page because there is no stored inactive state. |
+| `pageNumber` | Integer | Default `1`; at least 1. |
+| `pageSize` | Integer | Default `10`; 1 through 100. |
+
+- The existing `UserBot` model has no `IsActive`, soft-delete flag, expiration, or removal history. Ownership is represented by row presence. `isActive` is a read projection of that presence, independent of `User.IsDeleted` and `Bot.IsActive`; it is not a new database field.
+- All filters combine before counting/pagination. Valid but unknown user/bot filter IDs return an empty `200` page. Malformed/invalid IDs or booleans fail validation/binding with `400`.
+- Results are ordered by `purchaseDate` descending and then assignment `id` descending. Standard pagination fields are `items`, `totalItems`, `totalPages`, and `currentPage`.
+- Empty matches return zero totals. Pages beyond the last page return empty items with actual totals and the requested page number. Pagination offsets beyond Int32 maximum return `400`.
+- Removed assignments cannot be listed or inspected; an inactive-history view would require a separate domain change. The frontend should describe removal as revoking an assignment rather than promising a recoverable inactive record.
+
+### 14.4 Assign a Bot
+
+```json
+{
+  "userId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "botId": 3
+}
+```
+
+- The backend validates both related resources exist before saving. Missing user returns `404`, `User not found.` Missing bot returns `404`, `Bot not found.` Invalid GUIDs/nonpositive bot IDs return `400`.
+- User and bot lifecycle flags remain independent of assignment presence. Admins may prepare assignments for deactivated users or inactive bots; the existing user authentication and bot catalog lifecycle checks continue applying.
+- A user can own multiple bots, and a bot can be assigned to multiple users. The same User+Bot pair can have only one current assignment. Existing duplicate pairs return `409`, message `User is already assigned to this bot.` This also applies when the linked user or bot is inactive.
+- A unique database index protects against concurrent duplicate assignments; SQL Server uniqueness errors return the same conflict response. Successful assignment creates exactly one UserBot row and returns its ID in the DTO and detail `Location` header.
+- The authenticated caller remains the admin; the body `userId` selects the assignment subject and cannot override caller authorization.
+
+### 14.5 Remove and Ownership Compatibility
+
+- `DELETE /api/v1/admin/subscriptions/{id}` physically deletes only the selected UserBot relationship. This follows the current presence-based ownership model; retaining a row with an unsupported inactive marker would still grant access through existing ownership queries.
+- User, bot, accounts, logs, settings, refresh tokens, and transaction history are retained. The removed assignment's legacy purchase fields disappear with that relationship row because the current model has no assignment-history record.
+- The existing `IUserBotService.CheckOwnershipAsync`, subscribed-bot query, ownership-required bot details, and scoped bot activity-log checks keep using `UserBots` as their source of truth. Subsequent reads stop recognizing a removed assignment; other users' assignments and the same user's other bots remain intact.
+- Inspecting or deleting an already-removed assignment returns `404`. Reassigning the same pair uses POST and creates a new relationship ID with the new-assignment legacy field defaults, not a restoration of the deleted row.
+
+### 14.6 Errors, Migration and Verification
+
+- Validation/binding errors return `400` in `ApiErrorResponse`, including `statusCode`, `message`, `path`, `method`, and `traceId`. Binding errors use `Invalid subscription management request. Supply valid values and only supported fields.` Missing resources return `404`; duplicate pairs return `409`. Authentication challenges/forbids retain existing middleware behavior and may have no JSON body.
+- Apply migration `20261014215528_AddUniqueUserBotAssignment` before deploying against an existing SQL Server database. It replaces `IX_UserBots_UserId` with unique composite index `IX_UserBots_UserId_BotId`; existing FK restrictions and purchase columns are preserved.
+- The migration does not delete, deduplicate, or rewrite assignment data. Existing duplicate user/bot pairs must be reviewed and resolved before applying the unique index, preserving any meaningful legacy purchase information.
+- Integration coverage includes Admin/SuperAdmin access; anonymous and non-admin rejection on all four endpoints; inactive/missing/stale admin identity checks; assignment, duplicate rejection and relational uniqueness; user/bot/presence filters and pagination; removal/reassignment; invalid IDs/JSON/server-managed fields; safe DTO fields; preservation of legacy metadata and related records; existing ownership-service/client endpoint behavior; and SQL Server migration generation/model consistency.
+- Tests use production controllers, authentication/session handling, CQRS and EF mappings with SQLite adaptations. Migration SQL was generated and verified; no live SQL Server database was modified.
 

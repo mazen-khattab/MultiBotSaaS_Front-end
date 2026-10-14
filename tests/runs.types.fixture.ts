@@ -4,6 +4,7 @@ import { z } from "zod"
 import GenericRunsPage from "@/features/runs/pages/GenericRunsPage"
 import type { BotTabComponentProps, BotTabDefinition } from "@/registry/botRegistry.types"
 import type { RunsPageConfig } from "@/registry/configs/runsConfig.types"
+import { defineLeadsScraperModule } from "@/registry/definitions/leadsScraper.shared"
 
 const schema = z.object({ account: z.string().transform(Number), term: z.string() })
 type Input = z.input<typeof schema>
@@ -29,6 +30,19 @@ function TestModuleRuns({ botId }: BotTabComponentProps) {
 
 export const component: BotTabDefinition["component"] = lazy(async () => ({ default: TestModuleRuns }))
 export const registryConfig: BotTabDefinition["config"] = config
+
+// The shared factory retains transformed form output without type assertions.
+export const composedModule = defineLeadsScraperModule<Input, Output>({
+  uiModuleCode: "TEST-ONLY-SCRAPER", supportsGroups: false, supportsLeads: true,
+  supportsRuns: true, runsConfig: config,
+})
+export const accountsOnlyModule = defineLeadsScraperModule({
+  uiModuleCode: "TEST-ONLY-ACCOUNTS", supportsGroups: false, supportsLeads: false, supportsRuns: false,
+})
+// @ts-expect-error A Runs tab must supply its typed page configuration.
+defineLeadsScraperModule({ uiModuleCode: "TEST-ONLY-MISSING", supportsGroups: false, supportsLeads: false, supportsRuns: true })
+// @ts-expect-error Disabled Runs cannot carry an active run configuration.
+defineLeadsScraperModule({ uiModuleCode: "TEST-ONLY-DISABLED", supportsGroups: false, supportsLeads: false, supportsRuns: false, runsConfig: config })
 
 // @ts-expect-error Retry semantics are undefined; a module cannot enable retry.
 export const invalidRetry: RunsPageConfig<Input, Output>["capabilities"]["canRetryRun"] = true
