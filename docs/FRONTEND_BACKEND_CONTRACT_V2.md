@@ -557,19 +557,26 @@ Admin-created codes are trimmed and converted to uppercase, contain 1 to 50 lett
 
 #### 7.3.1 Get Leads for Bot
 - **Method:** `GET`
-- **Route:** `/api/leads/leads/{botId}`
+- **Route:** `/api/v1/leads/leads/{botId}`
 - **Auth:** `[Authorize]`
 - **Query Params:**
   - `pageNumber` (default `1`)
   - `pageSize` (default `10`)
   - `statusFilter` (optional, e.g., `"Pending"`, `"Completed"`, `"Failed"`)
-- **Response:** `ApiResponse<PaginatedResult<LeadDto>>`
+- **Response:** `ApiResponse<PaginatedResult<LeadListDto>>`
 
 #### 7.3.2 Get Messaging Preview Leads
 - **Method:** `GET`
-- **Route:** `/api/leads/bot/messaging-preview/{botId}`
+- **Route:** `/api/v1/leads/bot/messaging-preview/{botId}`
 - **Auth:** `[Authorize]`
-- **Response:** `ApiResponse<List<LeadDto>>`
+- **Response:** `ApiResponse<MessagingPreviewResponseDto>`
+
+#### 7.3.3 Get Lead Details
+- **Method:** `GET`
+- **Route:** `/api/v1/leads/{leadId}` (positive Int64)
+- **Auth:** `[Authorize]`; authenticated owner only, with current UserBot ownership when linked to a bot.
+- **Response:** `ApiResponse<LeadDetailsDto>`; stored lead fields and `metadataJson` string, without EF navigation objects or security fields.
+- **Errors:** `401` for missing/invalid authentication or session; `404` with `Lead not found.` for missing/inaccessible leads; `400` for nonpositive IDs. See section 16 for DTO and ownership details.
 
 ---
 
@@ -1371,4 +1378,76 @@ $env:Cors__AllowedOrigins__1 = "https://admin.example.com"
 - TestServer coverage exercises credentialed preflights and actual requests, unlisted origins, JWT cookie authentication, and independent worker/webhook key checks using the production CORS registration/authentication/filter implementations.
 - Token-service tests cover cookie security flags, host-only scope, and creation/deletion path across Development, Staging and Production.
 - Reference behavior: [ASP.NET Core configuration](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/?view=aspnetcore-10.0), [CORS](https://learn.microsoft.com/en-us/aspnet/core/security/cors?view=aspnetcore-10.0), and [SameSite cookies](https://learn.microsoft.com/en-us/aspnet/core/security/samesite?view=aspnetcore-10.0).
+
+---
+
+## 16. Lead Details Endpoint
+
+### 16.1 Route and Response
+
+- `GET /api/v1/leads/{leadId}` requires `[Authorize]` and the existing cookie JWT/session checks. `leadId` is a positive Int64. There is no request body or supported ownership query parameter.
+- Success is `200 OK` with `ApiResponse<LeadDetailsDto>` and message `Lead retrieved successfully.`
+- The existing routes remain `GET /api/v1/leads/leads/{botId}` for the paginated list and `GET /api/v1/leads/bot/messaging-preview/{botId}` for messaging preview. Their backend routes and behavior are unchanged; section 7.3 corrects the older documentation paths.
+
+```json
+{
+  "isSuccess": true,
+  "message": "Lead retrieved successfully.",
+  "errorType": 0,
+  "data": {
+    "id": 101,
+    "botId": 3,
+    "groupId": 8,
+    "accountId": 12,
+    "scrapeId": 25,
+    "externalId": "profile-123",
+    "profileName": "Example Lead",
+    "profileUrl": "https://example.com/profile/123",
+    "aiMessage": "Hello from the assistant.",
+    "status": "Completed",
+    "createdAt": "2026-10-15T10:00:00",
+    "processedAt": "2026-10-15T10:05:00",
+    "metadataJson": "{\"bio\":\"Consultant\",\"context\":{\"comment\":\"Interested\"}}"
+  }
+}
+```
+
+**Response DTO: `LeadDetailsDto`**
+
+```typescript
+interface LeadDetailsDto {
+  id: number; // Backend Int64, matching the existing lead ID model.
+  botId: number | null;
+  groupId: number | null;
+  accountId: number | null;
+  scrapeId: number | null;
+  externalId: string;
+  profileName: string;
+  profileUrl: string;
+  aiMessage: string | null;
+  status: string;
+  createdAt: string;
+  processedAt: string | null;
+  metadataJson: string | null;
+}
+```
+
+- Fields are projected from `Lead`; metadata comes from the existing `Lead.Detail.MetaDataJson` property. Metadata is the stored JSON string, not a parsed JSON object; parse it only when the UI needs its contents. A missing detail maps to null; the existing split-table column defaults to `"{}"`.
+- Nullable identifiers, message, and processed timestamp preserve their stored nulls. No `updatedAt` exists in the current Lead model, so none is returned. Status/profile/AI text and timestamps retain their stored values.
+- The DTO excludes `userId`, EF navigation objects, user/account credentials, password hashes, session/refresh tokens, and unrelated internal fields. There is no schema change.
+
+### 16.2 Ownership and Error Behavior
+
+- The controller derives the user ID exclusively from the authenticated `ClaimTypes.NameIdentifier`. Supplying `userId` or `botId` in the query string cannot select another owner or override the stored bot link.
+- The CQRS query first scopes by both `Lead.Id` and `Lead.UserId`. If a bot is linked, `IUserBotService.CheckOwnershipAsync` also requires the authenticated user's current UserBot assignment.
+- Two users assigned to the same bot cannot read each other's leads. Removing an assignment revokes details access for leads still linked to that bot. Owning the lead alone does not bypass a linked bot's assignment check.
+- A historical lead whose `BotId` is null remains accessible only to its recorded owner. This follows the existing nullable bot relationship and its `SetNull` delete behavior.
+- Missing leads, another user's leads, and leads linked to an unassigned bot all return the same `404` message, `Lead not found.`, through the standard `ApiErrorResponse` (`isSuccess`, `statusCode`, `message`, `path`, `method`, `traceId`). Production error responses do not expose stack traces.
+- Anonymous, invalid-cookie, stale-session, and deactivated-user requests return `401` under existing authentication/session handling. Nonpositive IDs return `400` through FluentValidation (`LeadId must be greater than 0.`). Nonnumeric/out-of-range Int64 path segments do not match the route and return `404`.
+
+### 16.3 Verification and Scope
+
+- Integration tests use production controllers, JWT cookies, session validation, the MediatR validation pipeline, handlers and relational SQLite with production EF mappings.
+- Coverage includes successful owned retrieval (including an ID beyond Int32), metadata and exact DTO fields; nullable data; unauthorized requests; shared-bot ownership isolation; missing leads; client-supplied ownership values; assignment removal; mismatched bot links; owner-only null-bot history; stale/deactivated sessions; ID validation; and unchanged list/preview routes.
+- No Lead Export, worker log/lead-writing change, billing behavior, or unrelated endpoint is introduced.
 

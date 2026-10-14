@@ -36,6 +36,7 @@ let server, dom, mountedRouter, browserRouter, api, originalAdapter, httpCalls;
 let AuthContext, BotWorkspaceLayout, useBotModule, BotsService, ClientBotsPage;
 let defineLeadsScraperModule, scraperRunsConfig;
 let postScraperRunsConfig;
+let ragModuleShell;
 const clients = [];
 let createBotWorkspaceLoader,
   botWorkspaceLoader,
@@ -99,6 +100,7 @@ before(async () => {
   ({ defineLeadsScraperModule } = await server.ssrLoadModule("/src/registry/definitions/leadsScraper.shared.ts"));
   ({ scraperRunsConfig } = await server.ssrLoadModule("/src/registry/definitions/scraperModules.ts"));
   ({ postScraperRunsConfig } = await server.ssrLoadModule("/src/features/bot-modules/post-scraper/postScraper.module.ts"));
+  ({ ragModuleShell } = await server.ssrLoadModule("/src/features/bot-modules/customer-service-rag/rag.module.ts"));
   originalAdapter = api.defaults.adapter;
   ({ BotsService } = await server.ssrLoadModule("/src/features/bots/services/BotsService.ts"));
   ({ default: ClientBotsPage } = await server.ssrLoadModule("/src/features/client/pages/ClientBotsPage.tsx"));
@@ -610,6 +612,48 @@ test("a registered tab without a resolved component shows workspace not found", 
   });
   await screen.findByRole("heading", { name: "Workspace page not found" });
   assert.equal(data.pageLoads(), 0);
+});
+
+test("RAG shells navigate through an injected test module with no network calls or simulated controls", async () => {
+  // The production registry never imports this shell. Only this test supplies a
+  // code and descriptor, so real workspace composition needs no backend lookup.
+  const definition = Object.freeze({ ...ragModuleShell, uiModuleCode: descriptor.uiModuleCode });
+  const networkAttempts = [];
+  const originalFetch = globalThis.fetch;
+  const originalWindowFetch = Object.getOwnPropertyDescriptor(window, "fetch");
+  const originalXhrOpen = window.XMLHttpRequest.prototype.open;
+  const rejectNetwork = () => {
+    networkAttempts.push("unexpected request");
+    throw new Error("RAG shells must not make network calls");
+  };
+  globalThis.fetch = rejectNetwork;
+  Object.defineProperty(window, "fetch", { configurable: true, writable: true, value: rejectNetwork });
+  window.XMLHttpRequest.prototype.open = rejectNetwork;
+  try {
+    mount(buildBotWorkspacePath(descriptor.botId), {
+      registry: { [definition.uiModuleCode]: definition },
+    });
+    await screen.findByRole("heading", { name: "Workspace ready" });
+    const nav = within(screen.getByRole("navigation", { name: "Bot workspace navigation" }));
+    assert.deepEqual(nav.getAllByRole("link").map((link) => link.textContent),
+      ["Home", "Knowledge Base", "Conversations", "Prompt Settings", "Playground"]);
+    for (const tab of ragModuleShell.sidebarTabs) {
+      fireEvent.click(nav.getByRole("link", { name: tab.label }));
+      const heading = await screen.findByRole("heading", { name: `${tab.label} unavailable` });
+      const shell = heading.closest("section");
+      assert.ok(within(shell).getByText(/backend support is added/));
+      assert.equal(shell.querySelector("input, textarea, select, form, button, a"), null);
+      assert.equal(mountedRouter.state.location.pathname, buildBotTabPath(descriptor.botId, tab.slug));
+      assert.equal(nav.getByRole("link", { name: tab.label }).getAttribute("aria-current"), "page");
+    }
+    assert.equal(httpCalls, 0);
+    assert.deepEqual(networkAttempts, []);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalWindowFetch) Object.defineProperty(window, "fetch", originalWindowFetch);
+    else delete window.fetch;
+    window.XMLHttpRequest.prototype.open = originalXhrOpen;
+  }
 });
 
 test("unsupported module codes expose the code and never render dynamic tabs", async () => {
