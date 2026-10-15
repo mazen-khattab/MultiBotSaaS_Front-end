@@ -78,6 +78,10 @@ src/
 
 For an exhaustive breakdown of every directory and file, see the [Project Structure Documentation](./project_structure.md).
 
+Before adding a feature integration, read the [frontend capability matrix](./docs/frontend-capability-matrix.md)
+and [backend blockers](./docs/backend-blockers.md), then check the live backend contract.
+These distinguish existing APIs from incomplete frontend work and unsupported operations.
+
 ---
 
 ## 📜 Available Scripts

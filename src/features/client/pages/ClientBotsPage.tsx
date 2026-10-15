@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom"
 
 import { buildBotWorkspacePath } from "@/app/router/routePaths"
+import { frontendCapabilities } from "@/core/capabilities/frontendCapabilities"
 import { useBots, useSubscribedBots } from "@/features/bots/hooks/useBots"
 import type { BotDto } from "@/features/bots/types/bots.types"
 import { BackendCapabilityNotice } from "@/features/client/components/BackendCapabilityNotice"
@@ -17,7 +18,7 @@ export default function ClientBotsPage() {
         <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">My bots</h2>
       </div>
       <div className="space-y-8">
-        <BackendCapabilityNotice title="Bot subscriptions" description="Browse the catalog and open bots assigned to your account. Purchasing bots and changing subscriptions are unavailable here." />
+        <BackendCapabilityNotice title="Bot subscriptions" description={frontendCapabilities.clientPurchase.description} />
         <section aria-label="Subscribed bots">
           {subscribed.isPending ? <p role="status">Loading subscribed bots…</p> : null}
           <ApiErrorAlert error={subscribed.error} onRetry={() => { void subscribed.refetch() }} />

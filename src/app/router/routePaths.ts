@@ -12,6 +12,7 @@ export const routePaths = {
   adminBots: "/admin/bots",
   adminSubscriptions: "/admin/subscriptions",
   adminTransactions: "/admin/transactions",
+  adminAuditLogs: "/admin/audit-logs",
 } as const
 
 export const buildBotWorkspacePath = (botId: string) =>

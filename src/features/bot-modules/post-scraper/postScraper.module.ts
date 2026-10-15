@@ -1,3 +1,4 @@
+import { frontendCapabilities } from "@/core/capabilities/frontendCapabilities"
 import type { RunDto } from "@/features/runs/types/runs.types"
 import type { RunsPageConfig } from "@/registry/configs/runsConfig.types"
 import { defineLeadsScraperModule } from "@/registry/definitions/leadsScraper.shared"
@@ -12,7 +13,7 @@ export const postScraperRunsConfig: RunsPageConfig<Record<string, unknown>> = Ob
   description: "Posts and interactions collected from target groups.",
   // The API can start scrapes, but this module cannot yet build approved settings.
   capabilities: Object.freeze({ ...scraperRunsConfig.capabilities, canCreateRun: false }),
-  startUnavailableReason: "Starting a post scrape is unavailable until its run settings are ready.",
+  startUnavailableReason: frontendCapabilities.postScraperRunConfiguration.description,
   table: Object.freeze({
     ...scraperRunsConfig.table,
     caption: "Post scraper run history",

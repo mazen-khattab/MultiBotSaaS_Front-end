@@ -1,3 +1,4 @@
+import { frontendCapabilities } from "@/core/capabilities/frontendCapabilities"
 import type { RunsPageConfig } from "@/registry/configs/runsConfig.types"
 import type { RunDto } from "@/features/runs/types/runs.types"
 import { defineLeadsScraperModule } from "@/registry/definitions/leadsScraper.shared"
@@ -6,7 +7,7 @@ import { defineLeadsScraperModule } from "@/registry/definitions/leadsScraper.sh
 export const scraperRunsConfig: RunsPageConfig<Record<string, unknown>> = Object.freeze({
   title: "Runs",
   capabilities: Object.freeze({ canCreateRun: false, canListRuns: true, canGetRun: true, canCancelRun: true, canRetryRun: false }),
-  startUnavailableReason: "Run creation will be available when this module's run configuration is ready.",
+  startUnavailableReason: frontendCapabilities.scraperRunConfiguration.description,
   table: Object.freeze({
     caption: "Run history",
     columns: Object.freeze([
