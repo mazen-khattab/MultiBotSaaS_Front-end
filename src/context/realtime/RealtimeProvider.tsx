@@ -14,7 +14,8 @@ export function RealtimeProvider({ children, service = signalRService }: { child
   const session = useMemo<RealtimeSession | null>(() =>
     status === "authenticated" && userId && role && realm ? { userId, role, realm } : null,
   [status, userId, role, realm])
-  const snapshot = useSyncExternalStore(service.observe, service.getSnapshot, service.getSnapshot)
+  const readSnapshot = useCallback(() => service.getSnapshot(session), [service, session])
+  const snapshot = useSyncExternalStore(service.observe, readSnapshot, readSnapshot)
   const lifetime = useRef(0)
   const owner = useRef(service)
 
@@ -40,6 +41,7 @@ export function RealtimeProvider({ children, service = signalRService }: { child
   const value = useMemo(() => ({
     status: session ? snapshot.status : HubConnectionState.Disconnected,
     error: session ? snapshot.error : null,
+    recoveryVersion: snapshot.recoveryVersion,
     subscribe, retry,
   }), [session, snapshot, subscribe, retry])
   return <RealtimeContext.Provider value={value}>{children}</RealtimeContext.Provider>

@@ -295,6 +295,16 @@ When an operation fails, controllers return the `ApiErrorResponse` model:
 
 `403 Forbidden` comes from role authorization middleware; it is not an `ErrorType` enum member. FluentValidation/model-binding errors return HTTP `400` independently of `ErrorType.ValidationError`.
 
+### 4.4 Test Fixture Fidelity
+
+- HTTP mocks must use existing endpoint methods/routes and current wire DTOs rather than copying a frontend parser's assumptions. Connected-account list/detail reads include the bot path segment shown in sections 7.1.2–7.1.3; legacy unscoped read URLs are not aliases.
+- Current account list/detail responses expose `expiredAt`; details also expose `status` and `scrapesCount`. Group create/update/list/detail DTOs use `groupUrl`, and group details expose `scrapesCount`. `expAt`, `groupURL`, and `runsCount` are not current response property names. Frontend internal names such as `expiresAt` or `runsCount` require explicit adapter transforms; raw server fixtures must retain backend names.
+- User/Admin logout responses use `ApiResponse<string>` with null data, not `ApiResponse<bool>` with true data; see sections 2.1.4–2.1.5 and 17.3. Identity and refresh responses contain identity fields only, never readable JWTs.
+- A JWT challenge/role forbid may have no JSON body. Regular-user session failures use message-only HTTP `401`, including `Invalid session token.` or `Your session has expired or ended because you logged in from another device.` Do not normalize every mocked failure into `ApiErrorResponse` or treat these session messages as a recoverable token-expiry signal.
+- FluentValidation/model-binding failures return `400`; business `ErrorType.ValidationError` maps to `422`. Role denial is HTTP `403`, not an ErrorType enum member. Use section 4.3's actual numeric enum values and the endpoint-specific response shape.
+- SignalR fixtures use only section 9's three event names and exact payload fields; a fixture with `RunCompleted`, `runId`, or an invented `botId` must not redefine the backend contract. Test failures caused by historical frontend assumptions must remain visible until that integration is corrected.
+- These details are verified from the current DTOs/mappers, account/group controllers and handlers, auth/session responses, error mapping, and notification service. Part 27 remains a testing-foundation task; this clarification adds no product endpoint or feature.
+
 ---
 
 ## 5. Pagination, Filtering, Sorting & Search
@@ -433,14 +443,14 @@ Admin-created codes are trimmed and converted to uppercase, contain 1 to 50 lett
 
 #### 7.1.2 List Connected Accounts
 - **Method:** `GET`
-- **Route:** `/api/v1/connectedaccounts`
-- **Auth:** `[Authorize]`
+- **Route:** `/api/v1/connectedaccounts/{botId}`
+- **Auth:** `[Authorize]`; the caller must own the requested bot. Results are filtered by both authenticated user and route bot ID.
 - **Response:** `ApiResponse<List<ConnectedAccountDto>>`
 
 #### 7.1.3 Get Connected Account Details
 - **Method:** `GET`
-- **Route:** `/api/v1/connectedaccounts/{id}`
-- **Auth:** `[Authorize]`
+- **Route:** `/api/v1/connectedaccounts/{botId}/{id}`
+- **Auth:** `[Authorize]`; user ownership and the route bot/account scope are checked by the existing query handler.
 - **Response Body (`ApiResponse<ConnectedAccountDetailsDto>`):**
   ```json
   {
@@ -453,6 +463,7 @@ Admin-created codes are trimmed and converted to uppercase, contain 1 to 50 lett
       "platform": "Facebook",
       "maskedCookies": "sb=***; c_user=***",
       "expiredAt": "2026-10-25T14:30:00Z",
+      "status": "Active",
       "isActive": true,
       "relatedLeadsCount": 150,
       "scrapesCount": 14
@@ -484,7 +495,7 @@ Admin-created codes are trimmed and converted to uppercase, contain 1 to 50 lett
     "platform": "Facebook",
     "cookiesPayload": "[{\"name\":\"c_user\",\"value\":\"1000...\"}]",
     "status": "Active",
-    "isActive": true,
+    "isActive": true
   }
   ```
 
@@ -1430,6 +1441,16 @@ $env:Cors__AllowedOrigins__1 = "https://admin.example.com"
 - TestServer coverage exercises credentialed preflights and actual requests, unlisted origins, JWT cookie authentication, and independent worker/webhook key checks using the production CORS registration/authentication/filter implementations.
 - Token-service tests cover cookie security flags, host-only scope, and creation/deletion path across Development, Staging and Production.
 - Reference behavior: [ASP.NET Core configuration](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/?view=aspnetcore-10.0), [CORS](https://learn.microsoft.com/en-us/aspnet/core/security/cors?view=aspnetcore-10.0), and [SameSite cookies](https://learn.microsoft.com/en-us/aspnet/core/security/samesite?view=aspnetcore-10.0).
+
+### 15.5 Browser E2E Environment and Data Boundaries
+
+- Live browser tests use the configured HTTPS API origin and a frontend origin allowed by `Cors:AllowedOrigins`, with credentialed requests. Current auth cookies are HttpOnly, Secure, SameSite=None, host-only, and scoped to `/`. Do not substitute a JavaScript-readable token or assume an HTTP-to-HTTPS redirect establishes cookie authentication.
+- User and Admin sessions use the same `X-Access-Token`/`X-Refresh-Token` cookie names on the API host. Keep their browser contexts/cookie stores separate. To exercise regular-user session replacement, log the same user in through two separate contexts, then make an authenticated request from the older context and expect section 2.2's message-only `401`; the existing admin-role session exemptions do not establish the same behavior for admins.
+- Tests need explicitly provisioned users, administrative identities where required, bots, UserBot assignments, and owned account/group/lead/scrape data for the journey. A catalog/seed bot alone grants no UserBot ownership. Existing Admin APIs in sections 12–14 can provision regular users, bots, and assignments in a prepared test environment; they do not create administrative identities or implement a test reset API.
+- There is no executable test-login/seed/reset HTTP shortcut in the current controllers. `TestAuthController`'s test-login actions are commented out. Do not invent a shortcut endpoint or commit test/production credentials; test environment provisioning remains explicit.
+- Catalog/subscribed/detail reads, Scrapes history, and Admin Users/Bots/UserBot management are implemented backend capabilities. An unfinished frontend screen is a frontend integration gap. RAG and the other missing areas documented in sections 6.4 and 18 remain unsupported; a passing shell or mocked browser test does not establish their availability.
+- Backend relational HTTP tests use TestServer/SQLite adaptations and do not validate real-browser CORS/cookie behavior, trusted local HTTPS, or live external workers/webhooks. Label mocked-boundary browser coverage separately from live integration coverage, and do not claim either was executed from documentation review alone.
+- These prerequisites are verified from `TokenService`, CORS setup, current login/session/ownership behavior, controller routes, and the frontend API environment configuration. They clarify Part 28's existing E2E journeys without adding a product endpoint, setup shortcut, or test journey.
 
 ---
 

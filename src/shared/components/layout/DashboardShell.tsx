@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react"
 import { useLocation } from "react-router-dom"
 
+import { RealtimeConnectionStatus } from "@/features/realtime/RealtimeConnectionStatus"
 import { DashboardHeader } from "@/shared/components/layout/DashboardHeader"
 import { useSidebar } from "@/shared/hooks/useSidebar"
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/shared/ui/sheet"
@@ -44,6 +45,7 @@ function DashboardShellContent({
 
       <div className="min-w-0 md:pl-72">
         <DashboardHeader title={title} description={description} accountLabel={accountLabel} />
+        <RealtimeConnectionStatus />
         <main id="main-content" className="min-h-[calc(100vh-4.5rem)]">
           {children}
         </main>

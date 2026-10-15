@@ -1,5 +1,8 @@
 import { Activity, Bot, CircleGauge, Workflow } from "lucide-react"
 
+import { useBots } from "@/features/bots/hooks/useBots"
+import { BackendCapabilityNotice } from "@/features/client/components/BackendCapabilityNotice"
+import { ApiErrorAlert } from "@/shared/components/feedback/ApiErrorAlert"
 import { PageContainer } from "@/shared/components/layout/PageContainer"
 
 const overviewCards = [
@@ -9,6 +12,9 @@ const overviewCards = [
 ] as const
 
 export default function ClientOverviewPage() {
+  // Catalog is an unpaginated server list, so its length is a valid catalog
+  // count. It says nothing about all-user workflow or daily run aggregates.
+  const catalog = useBots()
   return (
     <PageContainer>
       <div className="mb-7">
@@ -30,11 +36,16 @@ export default function ClientOverviewPage() {
                 <Icon className="size-4" aria-hidden="true" />
               </span>
             </div>
-            <p className="mt-5 text-2xl font-semibold text-slate-950" aria-label={`${label} unavailable`}>
-              —
+            <p className="mt-5 text-2xl font-semibold text-slate-950" aria-label={label === "Available bots" && catalog.isSuccess ? `${label}: ${catalog.data.length}` : `${label} unavailable`}>
+              {label === "Available bots" && catalog.isSuccess ? catalog.data.length : "—"}
             </p>
           </article>
         ))}
+      </div>
+      <div className="mt-4 space-y-4">
+        {catalog.isPending ? <p role="status">Loading available bots…</p> : null}
+        <ApiErrorAlert error={catalog.error} onRetry={() => { void catalog.refetch() }} retrying={catalog.isFetching} />
+        <BackendCapabilityNotice title="Summary metrics unavailable" description="Active workflow and daily run totals are not available. Open a bot workspace to view its current run history." />
       </div>
 
       <section className="mt-6 overflow-hidden rounded-2xl border bg-slate-950 p-6 text-white shadow-sm sm:p-8">
