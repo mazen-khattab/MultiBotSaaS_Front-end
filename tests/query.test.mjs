@@ -27,6 +27,7 @@ let createQueryClient, queryDefaults, shouldRetryQuery, queryKeys, QueryProvider
 let AuthContext, useAuth, ApiErrorAlert, AppErrorBoundary, PageErrorState
 let normalizeApiError, api, originalAdapter, refreshCoordinator, useQueryClient, useQuery, hashKey
 let latestClient, latestAuth, mountedRouter
+let SignalRService, testRealtimeService
 const clients = new Set()
 const originalGlobals = new Map()
 
@@ -54,6 +55,7 @@ before(async () => {
   ;({ queryKeys } = await server.ssrLoadModule("/src/core/query/queryKeys.ts"))
   ;({ QueryProvider } = await server.ssrLoadModule("/src/app/providers/QueryProvider.tsx"))
   ;({ AppProviders } = await server.ssrLoadModule("/src/app/providers/AppProviders.tsx"))
+  ;({ SignalRService } = await server.ssrLoadModule("/src/services/realtime/SignalRService.ts"))
   ;({ AuthContext } = await server.ssrLoadModule("/src/context/auth/AuthContext.tsx"))
   ;({ useAuth } = await server.ssrLoadModule("/src/context/auth/useAuth.ts"))
   ;({ ApiErrorAlert } = await server.ssrLoadModule("/src/shared/components/feedback/ApiErrorAlert.tsx"))
@@ -71,6 +73,8 @@ beforeEach(() => {
   latestClient = undefined
   latestAuth = undefined
   mountedRouter = undefined
+  // Query tests exercise auth/cache behavior, with no live hub transport.
+  testRealtimeService = new SignalRService({ hubUrl: "" })
   api.defaults.adapter = async (config) => { throw new Error(`Unexpected request to ${config.url}`) }
 })
 
@@ -287,7 +291,7 @@ test("AppProviders installs Query without putting server data into Auth Context"
   api.defaults.adapter = async (config) => ({ config, status: 200, statusText: "OK", headers: {}, data: {
     isSuccess: true, message: "Login successful.", errorType: 0, data: user,
   } })
-  render(h(AppProviders, null, h(AppProbe)))
+  render(h(AppProviders, { realtimeService: testRealtimeService }, h(AppProbe)))
   const anonymousClient = latestClient
   await act(async () => { await latestAuth.loginUser({ email: user.email, password: "test-only password" }) })
   assert.notEqual(latestClient, anonymousClient)
@@ -351,7 +355,7 @@ test("AppProviders wraps provider children with the application error boundary",
   const originalError = console.error
   console.error = () => {}
   try {
-    render(h(AppProviders, null, h(CrashingChild)))
+    render(h(AppProviders, { realtimeService: testRealtimeService }, h(CrashingChild)))
     assert.ok(screen.getByRole("heading", { name: "Something went wrong" }))
     assert.equal(document.body.textContent.includes("private"), false)
   } finally { console.error = originalError }

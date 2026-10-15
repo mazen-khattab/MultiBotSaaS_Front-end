@@ -540,7 +540,9 @@ test("real application routes send an anonymous protected visit to a working log
   window.history.replaceState(null, "", "/dashboard/bots/example")
   mountedRouter = createMemoryRouter(appRoutes, { initialEntries: ["/dashboard/bots/example"] })
   render(h(AuthProvider, null, h(RouterProvider, { router: mountedRouter })))
-  await screen.findByRole("form", { name: "User sign in" })
+  // Vite compiles this lazy route on first use. Match the bounded cold-load
+  // allowance used by workspace integration tests instead of the 1s DOM default.
+  await screen.findByRole("form", { name: "User sign in" }, { timeout: 5000 })
   assert.equal(mountedRouter.state.location.pathname, "/login")
   assert.ok(screen.getByRole("button", { name: "Sign in" }))
 })
