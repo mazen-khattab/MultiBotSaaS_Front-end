@@ -230,13 +230,23 @@ When multiple frontend API requests fail simultaneously with `401 Unauthorized`:
 - `SuperAdmin`: System super administrator with elevated privilege.
 
 ### 3.2 Authorization Rules
-- All client dashboard endpoints require `[Authorize]` with role `User` (or admin).
+- Client API authorization is endpoint-specific. Bot/workspace controllers use `[Authorize]` with their existing user/bot ownership checks; Settings and Activity Logs explicitly require `[Authorize(Roles = "User")]` and reject Admin/SuperAdmin callers. Do not infer a universal role policy from the client-dashboard label.
 - Admin endpoints reside under `/api/v1/admin/` and require administrative roles.
-- Worker endpoints (`/api/v1/worker/*`) are protected by `[BotWorkerAuthorize]` requiring the `x-worker-api-key` header, except Worker dispatch endpoint which will be called from the front-end.
+- The worker lead/job/account status callbacks and activity-log submission require `[BotWorkerAuthorize]` and `x-worker-api-key`. `POST /api/v1/worker/dispatch-messaging` instead requires `[Authorize]`, uses browser session cookies, and does not require a worker API key. Classify each operation by its actual authorization, not the `/worker` route prefix.
 - Scrape completion webhook (`/api/v1/scrapes/{id}/complete`) is protected by `[N8nWebhookAuthorize]` requiring the `X-Webhook-Secret` header.
 
 ### 3.3 Account Status Checks
 - When a user is marked `IsDeleted == true`, `GET /api/v1/auth/me` and login/refresh operations immediately reject with `401 Unauthorized`.
+
+### 3.4 Capability Availability and Integration Boundaries
+
+- Capability-matrix states and runtime UI flags are frontend metadata, not backend permissions or a new capability-discovery API. The current backend exposes no dedicated capability-matrix/feature-flag endpoint. Existing endpoint authorization, role restrictions, UserBot ownership, and input validation still apply.
+- Distinguish an existing backend API from an implemented frontend integration. The bot catalog/subscribed/detail APIs, bot-scoped accounts/groups, Scrapes create/list/detail/cancel, lead list/detail/preview, User settings, User activity-log reads, and Admin Users/Bots/UserBot management are available under their documented contracts. An unfinished frontend page does not make its endpoint missing.
+- Scrape creation exists even where a module's specific `infoJson` workflow schema or frontend form/serializer remains unresolved. Record that module prerequisite separately from generic endpoint availability. Retry and lead export remain unsupported; do not invent routes or business behavior.
+- Browser messaging dispatch is separate from worker callbacks. The n8n scrape-completion callback is also an external integration action, protected by `X-Webhook-Secret`; browser capability flags must not expose worker/webhook secrets or callbacks.
+- RAG APIs, commercial plans/billing, Admin transactions/audit/system configuration, and dedicated dashboard aggregate APIs remain unavailable as described in sections 6.4, 6.5, and 18. User activity logs are not an Admin audit endpoint, and User settings are not system configuration.
+- SignalR availability means the three events in section 9; it does not establish progress, replay/resume, or a browser job-list API. The matrix documents existing capabilities and gaps without implementing another feature.
+- These classifications are verified from current controllers, authorization attributes/filters, scoped query handlers, hub mapping/notification service, and existing frontend module configuration. Sections 2 and 6–18 retain the detailed contracts.
 
 ---
 
