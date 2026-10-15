@@ -193,7 +193,9 @@ test("query keys separate domains, result shapes, filters and identifiers", () =
     assert.deepEqual(keys.details(), [domain, "detail"])
     assert.notEqual(hashKey(keys.list()), hashKey(keys.detail("id")))
   }
-  assert.equal(roots.size, 6)
+  assert.equal(roots.size, 7)
+  assert.deepEqual(queryKeys.settings.current, ["settings", "current"])
+  assert.notEqual(hashKey(queryKeys.settings.current), hashKey(queryKeys.settings.list()))
   assert.equal(hashKey(queryKeys.leads.list({ botId: "bot-a", page: 1 })), hashKey(queryKeys.leads.list({ page: 1, botId: "bot-a" })))
   assert.notEqual(hashKey(queryKeys.leads.list({ botId: "bot-a", page: 1 })), hashKey(queryKeys.leads.list({ botId: "bot-a", page: 2 })))
   assert.notEqual(hashKey(queryKeys.accounts.detail(1)), hashKey(queryKeys.accounts.detail("1")))

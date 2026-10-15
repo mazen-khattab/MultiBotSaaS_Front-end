@@ -1442,6 +1442,16 @@ $env:Cors__AllowedOrigins__1 = "https://admin.example.com"
 - Token-service tests cover cookie security flags, host-only scope, and creation/deletion path across Development, Staging and Production.
 - Reference behavior: [ASP.NET Core configuration](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/?view=aspnetcore-10.0), [CORS](https://learn.microsoft.com/en-us/aspnet/core/security/cors?view=aspnetcore-10.0), and [SameSite cookies](https://learn.microsoft.com/en-us/aspnet/core/security/samesite?view=aspnetcore-10.0).
 
+### 15.5 Browser E2E Environment and Data Boundaries
+
+- Live browser tests use the configured HTTPS API origin and a frontend origin allowed by `Cors:AllowedOrigins`, with credentialed requests. Current auth cookies are HttpOnly, Secure, SameSite=None, host-only, and scoped to `/`. Do not substitute a JavaScript-readable token or assume an HTTP-to-HTTPS redirect establishes cookie authentication.
+- User and Admin sessions use the same `X-Access-Token`/`X-Refresh-Token` cookie names on the API host. Keep their browser contexts/cookie stores separate. To exercise regular-user session replacement, log the same user in through two separate contexts, then make an authenticated request from the older context and expect section 2.2's message-only `401`; the existing admin-role session exemptions do not establish the same behavior for admins.
+- Tests need explicitly provisioned users, administrative identities where required, bots, UserBot assignments, and owned account/group/lead/scrape data for the journey. A catalog/seed bot alone grants no UserBot ownership. Existing Admin APIs in sections 12–14 can provision regular users, bots, and assignments in a prepared test environment; they do not create administrative identities or implement a test reset API.
+- There is no executable test-login/seed/reset HTTP shortcut in the current controllers. `TestAuthController`'s test-login actions are commented out. Do not invent a shortcut endpoint or commit test/production credentials; test environment provisioning remains explicit.
+- Catalog/subscribed/detail reads, Scrapes history, and Admin Users/Bots/UserBot management are implemented backend capabilities. An unfinished frontend screen is a frontend integration gap. RAG and the other missing areas documented in sections 6.4 and 18 remain unsupported; a passing shell or mocked browser test does not establish their availability.
+- Backend relational HTTP tests use TestServer/SQLite adaptations and do not validate real-browser CORS/cookie behavior, trusted local HTTPS, or live external workers/webhooks. Label mocked-boundary browser coverage separately from live integration coverage, and do not claim either was executed from documentation review alone.
+- These prerequisites are verified from `TokenService`, CORS setup, current login/session/ownership behavior, controller routes, and the frontend API environment configuration. They clarify Part 28's existing E2E journeys without adding a product endpoint, setup shortcut, or test journey.
+
 ---
 
 ## 16. Lead Details Endpoint

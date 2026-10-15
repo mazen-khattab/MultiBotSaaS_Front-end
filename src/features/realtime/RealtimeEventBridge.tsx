@@ -1,8 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 
 import { useAuth } from "@/context/auth/useAuth"
 import { useRealtime } from "@/context/realtime/useRealtime"
+import { createReconnectPolicy } from "@/core/realtime/reconnectPolicy"
 import { createJobRealtimeHandler } from "@/features/jobs/realtime/jobRealtimeHandlers"
 import { createLeadRealtimeHandlers } from "@/features/leads/realtime/leadRealtimeHandlers"
 import { createRunRealtimeHandler } from "@/features/runs/realtime/runRealtimeHandlers"
@@ -10,8 +11,16 @@ import { createRunRealtimeHandler } from "@/features/runs/realtime/runRealtimeHa
 /** Bind feature decisions to the current session's cache, outside the hub core. */
 export function RealtimeEventBridge() {
   const client = useQueryClient()
-  const { subscribe } = useRealtime()
+  const { subscribe, recoveryVersion } = useRealtime()
   const { status } = useAuth()
+  const recover = useMemo(() => createReconnectPolicy(client), [client])
+
+  useEffect(() => {
+    if (status !== "authenticated") return
+    // Query reads surface their own errors and retry controls. A read failure
+    // does not mean the notification transport or a backend job has failed.
+    void recover(recoveryVersion).catch(() => undefined)
+  }, [recover, recoveryVersion, status])
 
   useEffect(() => {
     if (status !== "authenticated") return

@@ -13,6 +13,8 @@ export interface RealtimeSession {
 export interface RealtimeSnapshot {
   readonly status: HubConnectionState | "Unavailable"
   readonly error: string | null
+  /** Successful recoveries in this session, retained across batched UI renders. */
+  readonly recoveryVersion: number
 }
 
 /** Exact camelCase server payloads; neither entity ID implies the current bot. */

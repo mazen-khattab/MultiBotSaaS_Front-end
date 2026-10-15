@@ -24,6 +24,7 @@ const createDomainKeys = <T extends string>(domain: T) => {
 }
 
 const leadKeys = createDomainKeys("leads")
+const settingsKeys = createDomainKeys("settings")
 
 export const queryKeys = {
   accounts: createDomainKeys("accounts"),
@@ -35,5 +36,7 @@ export const queryKeys = {
     messagingPreview: (botId: number) => [...leadKeys.all, "messaging-preview", botId] as const,
   },
   bots: createDomainKeys("bots"),
+  // The session-owned client isolates this current-user read without a userId.
+  settings: { ...settingsKeys, current: [...settingsKeys.all, "current"] as const },
   admin: createDomainKeys("admin"),
 } as const
