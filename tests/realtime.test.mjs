@@ -6,6 +6,9 @@ import { AxiosError } from "axios"
 import { JSDOM } from "jsdom"
 import React from "react"
 import { createServer } from "vite"
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query"
+import ts from "typescript"
+import { fileURLToPath } from "node:url"
 
 const h = React.createElement
 const user = { userId: "realtime-user", email: "user@example.test", name: "User", role: "User" }
@@ -21,9 +24,13 @@ const deferred = () => {
 let dom, server, SignalRService, RealtimeProvider, RealtimeContext, AuthContext, AppProviders, useAuth
 let api, originalAdapter, coordinator, SESSION_EXPIRED_MESSAGE
 let refreshSession, useRealtime
+let readSignalREvent, RealtimeEventBridge, QueryProvider, queryKeys
+let createRunRealtimeHandler, createLeadRealtimeHandlers, createJobRealtimeHandler
+let useLeads, useMessagingPreview, useRuns, useEligibleAccounts
 let render, screen, cleanup, waitFor, act, latestAuth, latestRealtime
 const globals = new Map()
 const services = []
+const clients = []
 
 before(async () => {
   dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost:5173/login", pretendToBeVisual: true })
@@ -42,6 +49,17 @@ before(async () => {
   ;({ AppProviders } = await server.ssrLoadModule("/src/app/providers/AppProviders.tsx"))
   ;({ useAuth } = await server.ssrLoadModule("/src/context/auth/useAuth.ts"))
   ;({ useRealtime } = await server.ssrLoadModule("/src/context/realtime/useRealtime.ts"))
+  ;({ readSignalREvent } = await server.ssrLoadModule("/src/services/realtime/signalr.events.ts"))
+  ;({ RealtimeEventBridge } = await server.ssrLoadModule("/src/features/realtime/RealtimeEventBridge.tsx"))
+  ;({ QueryProvider } = await server.ssrLoadModule("/src/app/providers/QueryProvider.tsx"))
+  ;({ queryKeys } = await server.ssrLoadModule("/src/core/query/queryKeys.ts"))
+  ;({ createRunRealtimeHandler } = await server.ssrLoadModule("/src/features/runs/realtime/runRealtimeHandlers.ts"))
+  ;({ createLeadRealtimeHandlers } = await server.ssrLoadModule("/src/features/leads/realtime/leadRealtimeHandlers.ts"))
+  ;({ createJobRealtimeHandler } = await server.ssrLoadModule("/src/features/jobs/realtime/jobRealtimeHandlers.ts"))
+  ;({ useLeads } = await server.ssrLoadModule("/src/features/leads/hooks/useLeads.ts"))
+  ;({ useMessagingPreview } = await server.ssrLoadModule("/src/features/leads/hooks/useMessagingPreview.ts"))
+  ;({ useRuns } = await server.ssrLoadModule("/src/features/runs/hooks/useRuns.ts"))
+  ;({ useEligibleAccounts } = await server.ssrLoadModule("/src/features/runs/hooks/useEligibleAccounts.ts"))
   ;({ api, refreshSession } = await server.ssrLoadModule("/src/core/api/api.ts"))
   ;({ refreshCoordinator: coordinator } = await server.ssrLoadModule("/src/core/api/refreshCoordinator.ts"))
   ;({ SESSION_EXPIRED_MESSAGE } = await server.ssrLoadModule("/src/core/api/apiError.ts"))
@@ -57,6 +75,7 @@ afterEach(async () => {
   cleanup()
   await act(async () => { await Promise.resolve(); await Promise.all(services.splice(0).map((service) => service.stop())) })
   await coordinator.getPendingRefresh()?.catch(() => undefined)
+  clients.splice(0).forEach((client) => client.clear())
 })
 after(async () => {
   api.defaults.adapter = originalAdapter
@@ -313,10 +332,10 @@ test("provider waits for authentication, survives StrictMode, retains same-princ
   view.rerender(tree(authValue("authenticated", { ...user, name: "Renamed" })))
   await act(async () => { await Promise.resolve() })
   assert.equal(connections.length, 1)
-  connections[0].handlers.get("ScrapeCompleted")({})
+  connections[0].handlers.get("ScrapeCompleted")({ scrapeId: 42, leadsCount: 0 })
   assert.equal(received, 1)
   view.rerender(tree(authValue(), false))
-  connections[0].handlers.get("ScrapeCompleted")({})
+  connections[0].handlers.get("ScrapeCompleted")({ scrapeId: 42, leadsCount: 0 })
   assert.equal(received, 1)
   view.unmount()
   await act(async () => { await Promise.resolve() })
@@ -391,4 +410,202 @@ test("real SDK automatically reconnects and app auth refresh/logout retain cooki
   const count = http.negotiations
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)) })
   assert.equal(http.negotiations, count)
+})
+
+test("event schemas allowlist exact payloads, zero completion counts, and current lead statuses", () => {
+  assert.deepEqual(readSignalREvent("ScrapeCompleted", [{ scrapeId: 42, leadsCount: 0, botId: 999 }]), { scrapeId: 42, leadsCount: 0 })
+  for (const status of ["Pending", "Completed", "Failed"]) {
+    assert.deepEqual(readSignalREvent("LeadStatusUpdated", [{ leadId: 2 ** 32, status }]), { leadId: 2 ** 32, status })
+  }
+  assert.deepEqual(readSignalREvent("JobFailed", [{ jobId: 85, message: "Timeout" }]), { jobId: 85, message: "Timeout" })
+  for (const [event, args] of [
+    ["RunCompleted", [{ scrapeId: 42, leadsCount: 1 }]], ["scrapecompleted", [{ scrapeId: 42, leadsCount: 1 }]],
+    ["toString", [{}]], ["ScrapeCompleted", [{ runId: 42, leadsCount: 1 }]],
+    ["ScrapeCompleted", [{ scrapeId: 42, leadsCount: -1 }]], ["ScrapeCompleted", [{ scrapeId: "42", leadsCount: 1 }]],
+    ["ScrapeCompleted", [{ scrapeId: 42, leadsCount: 1 }, {}]], ["ScrapeCompleted", []],
+    ["LeadStatusUpdated", [{ leadId: 101, status: "Contacted" }]], ["LeadStatusUpdated", [{ leadId: 101, status: "Messaged" }]],
+    ["LeadStatusUpdated", [{ leadId: Number.MAX_SAFE_INTEGER + 1, status: "Completed" }]],
+    ["JobFailed", [{ jobId: 0, message: "Timeout" }]], ["JobFailed", [{ jobId: 85 }]], ["JobFailed", [null]],
+  ]) assert.equal(readSignalREvent(event, args), undefined)
+})
+
+test("invalid wire events never reach features, and throwing consumers do not interrupt valid consumers", async () => {
+  const { service, connections } = harness()
+  const received = []
+  service.subscribe(session, "LeadStatusUpdated", (payload) => { received.push(payload) })
+  service.subscribe(session, "JobFailed", () => { throw new Error("test consumer failed") })
+  service.subscribe(session, "JobFailed", async () => { throw new Error("test async consumer failed") })
+  service.subscribe(session, "JobFailed", (payload) => { received.push(payload) })
+  await service.start(session)
+  connections[0].handlers.get("LeadStatusUpdated")({ leadId: 101, status: "Contacted" })
+  connections[0].handlers.get("LeadStatusUpdated")({ leadId: 101, status: "Completed", botId: 999 })
+  connections[0].handlers.get("JobFailed")({ jobId: 85, message: "Timeout" })
+  await Promise.resolve()
+  assert.deepEqual(received, [{ leadId: 101, status: "Completed" }, { jobId: 85, message: "Timeout" }])
+})
+
+const clientForEvents = () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
+  clients.push(client)
+  return client
+}
+function seedEventReads(client) {
+  const keys = {
+    runs73: queryKeys.runs.list({ botId: 73, pageNumber: 2, statusFilter: "Running" }),
+    runs74: queryKeys.runs.list({ botId: 74, pageNumber: 1, statusFilter: "Completed" }),
+    run42: queryKeys.runs.detail(42), run43: queryKeys.runs.detail(43),
+    leads73: queryKeys.leads.list({ botId: 73, pageNumber: 2, statusFilter: "Pending" }),
+    leads74: queryKeys.leads.list({ botId: 74, pageNumber: 3, statusFilter: "Failed" }),
+    preview73: queryKeys.leads.messagingPreview(73), preview74: queryKeys.leads.messagingPreview(74),
+    accounts: queryKeys.accounts.list({ botId: 74 }), eligible: queryKeys.accounts.list({ purpose: "eligible", botId: 73 }),
+    group: queryKeys.groups.detail(73, 5), bot: queryKeys.bots.detail(73), admin: queryKeys.admin.list(),
+  }
+  for (const key of Object.values(keys)) client.setQueryData(key, { items: [], totalItems: 4, status: "Running", collectedLeadsCount: 5 })
+  return keys
+}
+const invalidated = (client, key) => client.getQueryState(key).isInvalidated
+
+test("scrape completion refreshes relevant reads across bots without fabricating totals or final run fields", async () => {
+  const client = clientForEvents()
+  const keys = seedEventReads(client)
+  const original = client.getQueryData(keys.run42)
+  const onRun = createRunRealtimeHandler(client)
+  const onLeads = createLeadRealtimeHandlers(client).ScrapeCompleted
+  for (let duplicate = 0; duplicate < 2; duplicate++) {
+    await Promise.all([onRun({ scrapeId: 42, leadsCount: 2 }), onLeads({ scrapeId: 42, leadsCount: 2 })])
+  }
+  for (const name of ["runs73", "runs74", "run42", "leads73", "leads74", "preview73", "preview74", "accounts", "eligible", "group"]) {
+    assert.equal(invalidated(client, keys[name]), true, name)
+  }
+  for (const name of ["run43", "bot", "admin"]) assert.equal(invalidated(client, keys[name]), false, name)
+  assert.equal(client.getQueryData(keys.run42), original)
+  assert.equal(original.collectedLeadsCount, 5)
+  assert.equal(original.status, "Running")
+  assert.equal("endedAt" in original, false)
+})
+
+test("lead statuses invalidate paginated/filter/quota scopes instead of patching partial rows", async () => {
+  const client = clientForEvents()
+  const keys = seedEventReads(client)
+  const original = client.getQueryData(keys.leads73)
+  await createLeadRealtimeHandlers(client).LeadStatusUpdated({ leadId: 101, status: "Completed" })
+  for (const name of ["leads73", "leads74", "preview73", "preview74"]) assert.equal(invalidated(client, keys[name]), true, name)
+  for (const name of ["runs73", "run42", "accounts", "bot"]) assert.equal(invalidated(client, keys[name]), false, name)
+  assert.equal(client.getQueryData(keys.leads73), original)
+})
+
+test("worker job failures never update a run with the same numeric ID or invent job cache records", async () => {
+  const client = clientForEvents()
+  const keys = seedEventReads(client)
+  const count = client.getQueryCache().getAll().length
+  const original = client.getQueryData(keys.run42)
+  await createJobRealtimeHandler(client)({ jobId: 42, message: "Timeout" })
+  for (const name of ["leads73", "preview74", "accounts", "eligible"]) assert.equal(invalidated(client, keys[name]), true, name)
+  for (const name of ["run42", "runs73", "runs74", "group", "bot"]) assert.equal(invalidated(client, keys[name]), false, name)
+  assert.equal(client.getQueryData(keys.run42), original)
+  assert.equal(client.getQueryCache().getAll().length, count)
+})
+
+test("event bridge cleans all three subscriptions through StrictMode and principal changes", async () => {
+  const { service, connections } = harness()
+  let client, activeSubscriptions = 0
+  const callbacks = []
+  const subscribe = service.subscribe.bind(service)
+  service.subscribe = (principal, event, callback) => {
+    activeSubscriptions++
+    callbacks.push({ event, callback })
+    const remove = subscribe(principal, event, callback)
+    let removed = false
+    return () => { if (!removed) { removed = true; activeSubscriptions--; remove() } }
+  }
+  function CacheProbe() { client = useQueryClient(); return h(Probe) }
+  const tree = (identity) => h(React.StrictMode, null, h(AuthContext.Provider, { value: authValue("authenticated", identity) },
+    h(RealtimeProvider, { service }, h(QueryProvider, null, h(RealtimeEventBridge), h(CacheProbe)))))
+  const view = render(tree(user))
+  await screen.findByText("Connected")
+  assert.equal(activeSubscriptions, 3)
+  const oldClient = client
+  const oldWireCallback = connections[0].handlers.get("LeadStatusUpdated")
+  const oldFeatureCallback = callbacks.find((entry) => entry.event === "LeadStatusUpdated").callback
+  view.rerender(tree({ ...user, userId: "next-principal" }))
+  await waitFor(() => assert.equal(connections.length, 2))
+  await screen.findByText("Connected")
+  assert.notEqual(client, oldClient)
+  assert.equal(activeSubscriptions, 3)
+  const keys = seedEventReads(client)
+  await act(async () => { oldWireCallback({ leadId: 101, status: "Failed" }); await oldFeatureCallback({ leadId: 101, status: "Failed" }) })
+  assert.equal(invalidated(client, keys.leads73), false)
+  await act(async () => { connections[1].handlers.get("LeadStatusUpdated")({ leadId: 101, status: "Completed" }) })
+  assert.equal(invalidated(client, keys.leads73), true)
+  const currentWireCallback = connections[1].handlers.get("LeadStatusUpdated")
+  view.unmount()
+  await act(async () => { await Promise.resolve() })
+  assert.equal(activeSubscriptions, 0)
+  currentWireCallback({ leadId: 101, status: "Failed" })
+  assert.equal(client.getQueryCache().getAll().length, 0)
+})
+
+test("mounted app bridge refetches real feature services with their original bot, pagination, and filters", async () => {
+  const { service, connections } = harness()
+  let latestReads, collected = 5, completed = false
+  const calls = []
+  const lead = { leadId: 101, leadFormattedId: "LED-101", profileName: "Recipient", profileUrl: "https://example.test/profile",
+    aiMessage: "Hello", fromGroup: "Source", status: "Pending", createdAt: "2026-10-15T12:00:00Z" }
+  api.defaults.adapter = async (config) => {
+    calls.push(config)
+    if (config.url.endsWith("/login")) return success(config)
+    if (config.url === "/api/v1/scrapes") return success(config, { items: [{ id: 42, botId: 73, groupId: 5, accountId: 12,
+      collectedLeadsCount: collected, infoJson: "{}", startedAt: "2026-10-15T12:00:00Z", endedAt: null, status: "Running" }],
+      totalItems: 40, totalPages: 4, currentPage: 2 })
+    if (config.url === "/api/v1/Leads/leads/74") return success(config, { items: completed ? [] : [lead], totalItems: completed ? 0 : 21, totalPages: completed ? 0 : 3, currentPage: 3 })
+    if (config.url === "/api/v1/Leads/bot/messaging-preview/74") return success(config, { dailyMessageLimit: 5, messagesSent: completed ? 5 : 0,
+      allowedToProcessCount: completed ? 0 : 5, leads: [] })
+    if (config.url === "/api/v1/connectedaccounts/eligible") return success(config, [])
+    throw new Error(`Unexpected event-driven request: ${config.url}`)
+  }
+  function Reads() {
+    const runs = useRuns({ botId: 73, pageNumber: 2, pageSize: 25, statusFilter: "Running" })
+    const leads = useLeads({ botId: 74, pageNumber: 3, pageSize: 10, statusFilter: "Pending" })
+    const preview = useMessagingPreview(74)
+    useEligibleAccounts(73, true)
+    latestReads = { runs, leads, preview }
+    return h(Probe)
+  }
+  function AuthReads() { return useAuth().status === "authenticated" ? h(Reads) : h(Probe) }
+  render(h(AppProviders, { realtimeService: service }, h(AuthReads)))
+  await act(async () => { await latestAuth.loginUser({ email: user.email, password: "test-only" }) })
+  await waitFor(() => assert.equal(latestReads.leads.data?.items.length, 1))
+  await waitFor(() => assert.equal(latestReads.runs.data?.items[0].collectedLeadsCount, 5))
+  completed = true
+  await act(async () => { connections[0].handlers.get("LeadStatusUpdated")({ leadId: 101, status: "Completed" }) })
+  await waitFor(() => assert.equal(latestReads.leads.data?.items.length, 0))
+  await waitFor(() => assert.equal(latestReads.preview.data?.allowedToProcessCount, 0))
+  const runReadCount = calls.filter((call) => call.url === "/api/v1/scrapes").length
+  await act(async () => { connections[0].handlers.get("JobFailed")({ jobId: 42, message: "Timeout" }) })
+  assert.equal(calls.filter((call) => call.url === "/api/v1/scrapes").length, runReadCount)
+  collected = 7
+  for (let duplicate = 0; duplicate < 2; duplicate++) {
+    await act(async () => { connections[0].handlers.get("ScrapeCompleted")({ scrapeId: 42, leadsCount: 2 }) })
+    await waitFor(() => assert.equal(latestReads.runs.data?.items[0].collectedLeadsCount, 7))
+  }
+  for (const call of calls.filter((call) => call.url === "/api/v1/scrapes")) {
+    assert.deepEqual(call.params, { botId: 73, pageNumber: 2, pageSize: 25, statusFilter: "Running" })
+  }
+  for (const call of calls.filter((call) => call.url === "/api/v1/Leads/leads/74")) {
+    assert.deepEqual(call.params, { pageNumber: 3, pageSize: 10, statusFilter: "Pending" })
+  }
+})
+
+test("typed realtime subscriptions reject aliases, mismatched payloads, and undocumented fields", () => {
+  const project = fileURLToPath(new URL("../tsconfig.app.json", import.meta.url))
+  const loaded = ts.readConfigFile(project, ts.sys.readFile)
+  const parsed = ts.parseJsonConfigFileContent(loaded.config, ts.sys, fileURLToPath(new URL("../", import.meta.url)))
+  const program = ts.createProgram([
+    fileURLToPath(new URL("./realtime.types.fixture.ts", import.meta.url)),
+    fileURLToPath(new URL("../src/vite-env.d.ts", import.meta.url)),
+  ], { ...parsed.options, tsBuildInfoFile: undefined })
+  const diagnostics = ts.getPreEmitDiagnostics(program)
+  assert.equal(diagnostics.length, 0, ts.formatDiagnosticsWithColorAndContext(diagnostics, {
+    getCanonicalFileName: (file) => file, getCurrentDirectory: ts.sys.getCurrentDirectory, getNewLine: () => "\n",
+  }))
 })

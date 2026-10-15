@@ -7,8 +7,8 @@ import { refreshSession } from "@/core/api/api"
 import { isSessionExpiredPayload } from "@/core/api/apiError"
 import { refreshCoordinator } from "@/core/api/refreshCoordinator"
 import { env } from "@/core/config/env"
-import { signalREvents, type SignalREventName } from "@/services/realtime/signalr.events"
-import type { RealtimeSession, RealtimeSnapshot, SignalREventHandler } from "@/services/realtime/signalr.types"
+import { readSignalREvent, signalREvents, type SignalREventName } from "@/services/realtime/signalr.events"
+import type { RealtimeSession, RealtimeSnapshot, SignalREventHandler, SignalRWireHandler } from "@/services/realtime/signalr.types"
 
 type Connection = Pick<HubConnection, "state" | "start" | "stop" | "on" | "off" | "onclose" | "onreconnecting" | "onreconnected">
 
@@ -27,7 +27,7 @@ interface ConnectionSession {
   connection?: Connection
   pending?: Promise<void>
   unsubscribeExpiry?: () => void
-  readonly handlers: Map<SignalREventName, SignalREventHandler>
+  readonly handlers: Map<SignalREventName, SignalRWireHandler>
 }
 
 const sessionKey = (session: RealtimeSession) => JSON.stringify([session.realm, session.userId, session.role])
@@ -66,7 +66,7 @@ export class SignalRService {
   private stopBarrier: Promise<void> = Promise.resolve()
   private snapshot: RealtimeSnapshot = Object.freeze({ status: HubConnectionState.Disconnected, error: null })
   private readonly observers = new Set<() => void>()
-  private readonly subscriptions = new Map<symbol, { key: string; event: SignalREventName; handler: SignalREventHandler }>()
+  private readonly subscriptions = new Map<symbol, { key: string; event: SignalREventName; handler: SignalRWireHandler }>()
 
   constructor(private readonly options: SignalRServiceOptions = {}) {
     this.coordinator = options.coordinator ?? refreshCoordinator
@@ -87,10 +87,17 @@ export class SignalRService {
   }
 
   /** Subscribe locally, even before start; ownership prevents cross-session delivery. */
-  subscribe(session: RealtimeSession, event: SignalREventName, handler: SignalREventHandler) {
+  subscribe<TEvent extends SignalREventName>(session: RealtimeSession, event: TEvent, handler: SignalREventHandler<TEvent>) {
     if (!signalREvents.includes(event)) throw new Error("Unsupported notification event.")
     const token = Symbol(event)
-    this.subscriptions.set(token, { key: sessionKey(session), event, handler })
+    const receive: SignalRWireHandler = (...args) => {
+      const payload = readSignalREvent(event, args)
+      if (payload === undefined) return
+      // Async consumers must not create unhandled rejections or break other
+      // subscribers. Query-backed features expose their own read errors.
+      void Promise.resolve(handler(payload)).catch(() => undefined)
+    }
+    this.subscriptions.set(token, { key: sessionKey(session), event, handler: receive })
     return () => { this.subscriptions.delete(token) }
   }
 
@@ -149,7 +156,7 @@ export class SignalRService {
       : new HubConnectionBuilder().withUrl(url, options).configureLogging(LogLevel.None).withAutomaticReconnect().build()
 
     for (const event of signalREvents) {
-      const handler: SignalREventHandler = (...args) => {
+      const handler: SignalRWireHandler = (...args) => {
         if (this.current !== run || this.coordinator.getExpiredError()) return
         for (const subscription of [...this.subscriptions.values()]) {
           if (subscription.key === run.key && subscription.event === event) {

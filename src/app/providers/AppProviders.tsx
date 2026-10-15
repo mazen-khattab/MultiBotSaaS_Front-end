@@ -3,6 +3,7 @@ import type { ReactNode } from "react"
 import { QueryProvider } from "@/app/providers/QueryProvider"
 import { AuthProvider } from "@/context/auth/AuthProvider"
 import { RealtimeProvider } from "@/context/realtime/RealtimeProvider"
+import { RealtimeEventBridge } from "@/features/realtime/RealtimeEventBridge"
 import type { SignalRService } from "@/services/realtime/SignalRService"
 import { AppErrorBoundary } from "@/shared/components/feedback/AppErrorBoundary"
 import { TooltipProvider } from "@/shared/ui/tooltip"
@@ -20,6 +21,7 @@ export function AppProviders({ children, realtimeService }: AppProvidersProps) {
       <AuthProvider>
         <RealtimeProvider service={realtimeService}>
           <QueryProvider>
+            <RealtimeEventBridge />
             <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
           </QueryProvider>
         </RealtimeProvider>
