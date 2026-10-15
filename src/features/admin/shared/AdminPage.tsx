@@ -1,5 +1,7 @@
 import type { ReactNode } from "react"
 
+import type { FrontendCapability } from "@/core/capabilities/capability.types"
+import { capabilityStatusLabels } from "@/core/capabilities/frontendCapabilities"
 import { PageContainer } from "@/shared/components/layout/PageContainer"
 
 /** Shared presentation only; each feature owns its queries and supported actions. */
@@ -18,10 +20,12 @@ export function AdminPage({ title, description, children }: {
   </PageContainer>
 }
 
-/** Unsupported areas make no requests and expose no pretend mutation controls. */
-export function AdminUnavailable({ children }: { readonly children: ReactNode }) {
+/** Use shared blocker metadata; this presentation never changes authorization. */
+export function AdminUnavailable({ capability }: {
+  readonly capability: FrontendCapability & { readonly status: "blocked-backend" }
+}) {
   return <section className="rounded-2xl border border-dashed bg-white p-8">
-    <h3 className="font-semibold">Backend capability unavailable</h3>
-    <p className="mt-2 text-sm leading-6 text-muted-foreground">{children}</p>
+    <h3 className="font-semibold">{capabilityStatusLabels[capability.status]}</h3>
+    <p className="mt-2 text-sm leading-6 text-muted-foreground">{capability.description}</p>
   </section>
 }

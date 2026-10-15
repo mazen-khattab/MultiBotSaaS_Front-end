@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom"
 
 import { routePaths } from "@/app/router/routePaths"
+import { frontendCapabilities } from "@/core/capabilities/frontendCapabilities"
 import { AdminPage, AdminUnavailable } from "@/features/admin/shared/AdminPage"
 
 /** Link to available management areas without fabricating aggregate metrics. */
@@ -15,7 +16,7 @@ export default function AdminOverviewPage() {
         <h3 className="font-semibold">{item.title}</h3><p className="mt-2 text-sm text-muted-foreground">{item.detail}</p>
       </Link>)}
     </div>
-    <AdminUnavailable>No Admin overview or aggregate metrics API exists. Platform totals and KPIs are unavailable.</AdminUnavailable>
-    <AdminUnavailable>No Admin system configuration API exists. Regular-user settings do not configure the platform.</AdminUnavailable>
+    <AdminUnavailable capability={frontendCapabilities.adminOverviewMetrics} />
+    <AdminUnavailable capability={frontendCapabilities.adminSystemConfiguration} />
   </AdminPage>
 }

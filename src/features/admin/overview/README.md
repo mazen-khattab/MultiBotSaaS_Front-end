@@ -12,5 +12,6 @@ inferred from one list page. Regular-user settings (§10) are not system configu
 Transactions, Admin audit logs and commercial plans/billing also remain unsupported;
 see their feature READMEs. No speculative services or DTOs are created for gaps.
 
-Part 25 documents these local feature boundaries only. A centralized capability
-matrix is intentionally left to Part 26.
+The centralized [capability matrix](../../../../docs/frontend-capability-matrix.md)
+and [backend blockers](../../../../docs/backend-blockers.md) track these boundaries.
+The unavailable notices read the same metadata from `core/capabilities`.

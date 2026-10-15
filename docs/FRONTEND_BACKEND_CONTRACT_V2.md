@@ -277,7 +277,7 @@ When an operation fails, controllers return the `ApiErrorResponse` model:
   "innerException": null
 }
 ```
-> *Note:* `details` and `innerException` contain stack trace info **only** when `ASPNETCORE_ENVIRONMENT == "Development"`.
+> *Note:* The exception middleware includes `details` (stack trace) and `innerException` (inner-exception message) only in Development. Its serializer omits null fields outside Development; controller-generated envelopes may instead include null properties. Consumers must tolerate missing/null diagnostics and never render them or serialize raw transport errors into UI/logging state. Authentication/session failures retain the distinct shapes in sections 2.2 and 4.4.
 
 ### 4.3 ErrorType Enum Mapping
 | Enum Name | Integer | HTTP Status | Meaning |
@@ -1451,6 +1451,16 @@ $env:Cors__AllowedOrigins__1 = "https://admin.example.com"
 - Catalog/subscribed/detail reads, Scrapes history, and Admin Users/Bots/UserBot management are implemented backend capabilities. An unfinished frontend screen is a frontend integration gap. RAG and the other missing areas documented in sections 6.4 and 18 remain unsupported; a passing shell or mocked browser test does not establish their availability.
 - Backend relational HTTP tests use TestServer/SQLite adaptations and do not validate real-browser CORS/cookie behavior, trusted local HTTPS, or live external workers/webhooks. Label mocked-boundary browser coverage separately from live integration coverage, and do not claim either was executed from documentation review alone.
 - These prerequisites are verified from `TokenService`, CORS setup, current login/session/ownership behavior, controller routes, and the frontend API environment configuration. They clarify Part 28's existing E2E journeys without adding a product endpoint, setup shortcut, or test journey.
+
+### 15.6 Frontend Security Hardening Boundaries
+
+- Authentication tokens are delivered only through the existing HttpOnly cookies and identity-only auth responses. Secure/SameSite=None cookies require calls to the HTTPS API origin in Development as well as deployment; keep credentialed requests and the explicit CORS origins already documented above.
+- User-submitted `cookiesPayload` in account writes and replacement `aiApiKey`/`scraperToken` values in settings writes are separate from browser auth cookies. These existing operations require transient sensitive request inputs; do not log or persist them, copy them into query caches/devtools persistence, or repurpose GET masks as replacement secrets. Settings reads return presence/masks; account-detail reads return `maskedCookies`, not raw stored cookies.
+- Development exception responses can contain stack traces and inner-exception messages. Production exception serialization omits those null fields, while other envelopes may contain nulls. Error UI must use the safe feature/shared error message and exclude diagnostics and raw Axios errors/config, which can retain sensitive request bodies. Activity-log DTOs separately exclude stored stack traces in every environment.
+- Dynamic `uiModuleCode` values are identifiers for frontend-owned registry definitions, not arbitrary component paths, import URLs, functions, or executable JSON. Preserve exact registered-code resolution and the existing unsupported-module behavior when a code has no implementation.
+- Worker API keys and n8n webhook secrets remain backend/external-integration credentials. Browser messaging dispatch uses cookie authentication; its availability does not expose worker status callbacks or scrape-completion webhooks to the browser.
+- The current API startup configures CORS, not a Content-Security-Policy response header. No deployed SPA-host/proxy CSP configuration was verified in this review. Keep CSP-aware rendering within Part 29's scope and document hosting-policy boundaries; this does not add a backend CSP middleware, header contract, or security endpoint.
+- These details are verified from the token service, input/output DTOs and mappers, exception middleware, notification/integration authorization, current API startup, and existing frontend error/services/registry code. Performance and accessibility requirements remain unchanged.
 
 ---
 

@@ -1,5 +1,6 @@
 import { Activity, Bot, CircleGauge, Workflow } from "lucide-react"
 
+import { frontendCapabilities } from "@/core/capabilities/frontendCapabilities"
 import { useBots } from "@/features/bots/hooks/useBots"
 import { BackendCapabilityNotice } from "@/features/client/components/BackendCapabilityNotice"
 import { ApiErrorAlert } from "@/shared/components/feedback/ApiErrorAlert"
@@ -45,7 +46,7 @@ export default function ClientOverviewPage() {
       <div className="mt-4 space-y-4">
         {catalog.isPending ? <p role="status">Loading available bots…</p> : null}
         <ApiErrorAlert error={catalog.error} onRetry={() => { void catalog.refetch() }} retrying={catalog.isFetching} />
-        <BackendCapabilityNotice title="Summary metrics unavailable" description="Active workflow and daily run totals are not available. Open a bot workspace to view its current run history." />
+        <BackendCapabilityNotice title="Summary metrics unavailable" description={frontendCapabilities.clientOverviewMetrics.description} />
       </div>
 
       <section className="mt-6 overflow-hidden rounded-2xl border bg-slate-950 p-6 text-white shadow-sm sm:p-8">
