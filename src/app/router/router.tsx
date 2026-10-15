@@ -96,23 +96,27 @@ export const appRoutes: RouteObject[] = [
                 children: [
                   {
                     index: true,
-                    lazy: lazyPage(() => import("@/features/admin/pages/AdminOverviewPage")),
+                    lazy: lazyPage(() => import("@/features/admin/overview/AdminOverviewPage")),
                   },
                   {
                     path: "users",
-                    lazy: lazyPage(() => import("@/features/admin/pages/AdminUsersPage")),
+                    lazy: lazyPage(() => import("@/features/admin/users/AdminUsersPage")),
                   },
                   {
                     path: "bots",
-                    lazy: lazyPage(() => import("@/features/admin/pages/AdminBotsPage")),
+                    lazy: lazyPage(() => import("@/features/admin/bots/AdminBotsPage")),
                   },
                   {
                     path: "subscriptions",
-                    lazy: lazyPage(() => import("@/features/admin/pages/AdminSubscriptionsPage")),
+                    lazy: lazyPage(() => import("@/features/admin/subscriptions/AdminSubscriptionsPage")),
                   },
                   {
                     path: "transactions",
-                    lazy: lazyPage(() => import("@/features/admin/pages/AdminTransactionsPage")),
+                    lazy: lazyPage(() => import("@/features/admin/transactions/AdminTransactionsPage")),
+                  },
+                  {
+                    path: "audit-logs",
+                    lazy: lazyPage(() => import("@/features/admin/audit-logs/AdminAuditLogsPage")),
                   },
                 ],
               },

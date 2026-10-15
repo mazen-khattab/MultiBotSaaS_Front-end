@@ -522,7 +522,7 @@ test("post-login destinations reject external URLs, wrong realms, path lookalike
 })
 
 test("every real client, bot and admin route is behind auth and role boundaries", () => {
-  for (const pathname of ["/dashboard", "/dashboard/settings", "/dashboard/bots", "/dashboard/bots/example", "/dashboard/bots/example/leads", "/admin", "/admin/users", "/admin/bots", "/admin/subscriptions", "/admin/transactions"]) {
+  for (const pathname of ["/dashboard", "/dashboard/settings", "/dashboard/bots", "/dashboard/bots/example", "/dashboard/bots/example/leads", "/admin", "/admin/users", "/admin/bots", "/admin/subscriptions", "/admin/transactions", "/admin/audit-logs"]) {
     const matches = matchRoutes(appRoutes, pathname)
     const realm = pathname.startsWith("/admin") ? "admin" : "user"
     const authMatch = matches.find(({ route }) => route.element?.type === RequireAuth)

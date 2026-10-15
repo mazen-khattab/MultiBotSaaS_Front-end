@@ -1,4 +1,4 @@
-import { Bot, CreditCard, LayoutDashboard, ReceiptText, Users } from "lucide-react"
+import { Bot, CreditCard, LayoutDashboard, ReceiptText, ScrollText, Users } from "lucide-react"
 
 import { routePaths } from "@/app/router/routePaths"
 import type { NavigationGroupDefinition } from "@/shared/types/navigation"
@@ -27,6 +27,12 @@ export const adminNavigation: readonly NavigationGroupDefinition[] = [
         title: "Transactions",
         href: routePaths.adminTransactions,
         icon: ReceiptText,
+      },
+      {
+        key: "admin-audit-logs",
+        title: "Audit logs",
+        href: routePaths.adminAuditLogs,
+        icon: ScrollText,
       },
     ],
   },
