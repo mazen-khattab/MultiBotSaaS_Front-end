@@ -76,3 +76,7 @@ Validation results:
 The prescribed RAG architecture is implemented, but full-suite verification
 remains unresolved because of those inherited Leads tests. No live RAG backend
 is available to exercise. External plan documents are unchanged; no PR is created.
+
+Part 27 follow-up: the historical Leads route fixtures above are now aligned
+with the versioned contract. See the [testing report](../../../../docs/PART_27_TESTING.md)
+for current checks. RAG remains explicitly blocked by its missing backend APIs.

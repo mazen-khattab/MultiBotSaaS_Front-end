@@ -134,7 +134,7 @@ test("all eight auth service methods use their documented endpoints and the cent
     assert.equal(config.method, config.url.endsWith("/me") ? "get" : "post")
     if (config.url.endsWith("/login")) assert.deepEqual(JSON.parse(config.data), credentials)
     else assert.equal(config.data, undefined)
-    return response(config, envelope(config.url.endsWith("/logout") ? true : config.url.includes("/admin/") ? admin : user))
+    return response(config, envelope(config.url.endsWith("/logout") ? null : config.url.includes("/admin/") ? admin : user))
   }
   assert.deepEqual(await AuthService.loginUser(credentials), user)
   assert.deepEqual(await AuthService.getUserMe(), user)
@@ -242,7 +242,7 @@ test("bootstrap failure leaves anonymous state and sends the proper realm login 
 
 test("public login starts anonymous; successful user login and logout update context", async () => {
   const paths = []
-  api.defaults.adapter = async (config) => { paths.push(config.url); return response(config, envelope(config.url.endsWith("logout") ? true : user)) }
+  api.defaults.adapter = async (config) => { paths.push(config.url); return response(config, envelope(config.url.endsWith("logout") ? null : user)) }
   mountProvider()
   assert.equal(latestAuth.status, "anonymous")
   assert.equal(paths.length, 0)
@@ -258,7 +258,7 @@ test("public login starts anonymous; successful user login and logout update con
 
 test("admin login registers admin realm for subsequent refresh and logout actions", async () => {
   const paths = []
-  api.defaults.adapter = async (config) => { paths.push(config.url); return response(config, envelope(config.url.endsWith("logout") ? true : admin)) }
+  api.defaults.adapter = async (config) => { paths.push(config.url); return response(config, envelope(config.url.endsWith("logout") ? null : admin)) }
   mountProvider()
   await act(async () => { await latestAuth.loginAdmin(credentials) })
   await act(async () => { await latestAuth.refresh() })
@@ -277,7 +277,7 @@ test("interceptor refresh success hydrates updated identity in the auth context"
   }
   mountProvider()
   await act(async () => { await latestAuth.loginUser(credentials) })
-  await act(async () => { await api.get("/api/v1/connectedaccounts") })
+  await act(async () => { await api.get("/api/v1/connectedaccounts/73") })
   assert.equal(latestAuth.user.name, "Updated Name")
   assert.equal(latestAuth.status, "authenticated")
 })
@@ -293,11 +293,11 @@ test("single-session mismatch clears identity and redirects without a refresh lo
   mountedRouter = createMemoryRouter(guardedRoutes(), { initialEntries: ["/dashboard"] })
   render(h(AuthProvider, null, h(Probe), h(RouterProvider, { router: mountedRouter })))
   await screen.findByText("Protected content")
-  await act(async () => { await assert.rejects(api.get("/api/v1/connectedaccounts"), { kind: "session" }) })
+  await act(async () => { await assert.rejects(api.get("/api/v1/connectedaccounts/73"), { kind: "session" }) })
   await screen.findByText("User login destination")
   assert.equal(latestAuth.user, null)
   assert.equal(latestAuth.status, "anonymous")
-  assert.deepEqual(paths, ["/api/v1/auth/me", "/api/v1/connectedaccounts"])
+  assert.deepEqual(paths, ["/api/v1/auth/me", "/api/v1/connectedaccounts/73"])
 })
 
 test("logout waits for pending rotation and cannot be undone by stale refresh hydration", async () => {
@@ -307,7 +307,7 @@ test("logout waits for pending rotation and cannot be undone by stale refresh hy
   api.defaults.adapter = async (config) => {
     paths.push(config.url)
     if (config.url.endsWith("refresh")) { started.resolve(); await gate.promise }
-    return response(config, envelope(config.url.endsWith("logout") ? true : user))
+    return response(config, envelope(config.url.endsWith("logout") ? null : user))
   }
   mountProvider()
   await act(async () => { await latestAuth.loginUser(credentials) })

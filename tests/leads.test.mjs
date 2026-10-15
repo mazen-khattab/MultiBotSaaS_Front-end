@@ -96,7 +96,7 @@ async function openPicker() {
   fireEvent.change(screen.getByLabelText("Connected account"), { target: { value: "12" } })
 }
 
-test("services use authoritative DTOs and mixed route prefixes with cookies, aborts, and no worker key", async () => {
+test("services use authoritative DTOs and versioned routes with cookies, aborts, and no worker key", async () => {
   const calls = []
   const signal = new AbortController().signal
   api.defaults.adapter = async (config) => {
@@ -114,8 +114,8 @@ test("services use authoritative DTOs and mixed route prefixes with cookies, abo
   assert.deepEqual(await service.getMessagingPreview(73, signal), preview)
   assert.deepEqual(await service.dispatchMessages({ botId: 73, accountId: 12, leadIds: [201], extra: "ignored" }), acknowledgment)
   assert.deepEqual(calls, [
-    { method: "get", url: "/api/leads/leads/73", params: { pageNumber: 2, pageSize: 25, statusFilter: "Arbitrary status" }, body: undefined },
-    { method: "get", url: "/api/leads/bot/messaging-preview/73", params: undefined, body: undefined },
+    { method: "get", url: "/api/v1/leads/leads/73", params: { pageNumber: 2, pageSize: 25, statusFilter: "Arbitrary status" }, body: undefined },
+    { method: "get", url: "/api/v1/leads/bot/messaging-preview/73", params: undefined, body: undefined },
     { method: "post", url: "/api/v1/worker/dispatch-messaging", params: undefined, body: { botId: 73, accountId: 12, leadIds: [201] } },
   ])
 })
@@ -250,7 +250,7 @@ test("preview uses the server quota and preview DTO without eager account fetchi
   assert.ok(screen.getByText(previewLead.aiMessage))
   assert.equal(screen.queryByText(lead.fromGroup), null)
   assert.equal(screen.queryByLabelText("Rows per page"), null)
-  assert.deepEqual(calls, ["/api/leads/bot/messaging-preview/73"])
+  assert.deepEqual(calls, ["/api/v1/leads/bot/messaging-preview/73"])
 })
 
 test("zero allowance or an empty preview blocks Send message without account or dispatch calls", async () => {
@@ -263,7 +263,7 @@ test("zero allowance or an empty preview blocks Send message without account or 
     assert.equal(button.disabled, true)
     fireEvent.click(button)
     assert.equal(screen.queryByRole("dialog"), null)
-    assert.deepEqual(calls, ["/api/leads/bot/messaging-preview/73"])
+    assert.deepEqual(calls, ["/api/v1/leads/bot/messaging-preview/73"])
     cleanup()
   }
 })
@@ -319,7 +319,7 @@ test("account modal fetches eligible path, requires selection, sends preview IDs
   assert.equal(screen.queryByRole("dialog"), null)
   assert.ok(screen.getByText(/This confirms submission/))
   assert.ok(calls.filter((url) => url === "/api/v1/connectedaccounts/eligible/73").length >= 2)
-  assert.ok(calls.filter((url) => url === "/api/leads/bot/messaging-preview/73").length >= 3)
+  assert.ok(calls.filter((url) => url === "/api/v1/leads/bot/messaging-preview/73").length >= 3)
   assert.equal(calls.includes("/api/v1/connectedaccounts"), false)
 })
 
@@ -437,7 +437,7 @@ test("switching bots resets pagination/filter state and drops the old modal and 
   fireEvent.click(screen.getByRole("button", { name: "Apply filter" }))
   await waitFor(() => assert.equal(calls.at(-1).params.statusFilter, "Custom"))
   rerender(h(LeadsPage, { botId: "74" }))
-  await waitFor(() => assert.equal(calls.at(-1).url, "/api/leads/leads/74"))
+  await waitFor(() => assert.equal(calls.at(-1).url, "/api/v1/leads/leads/74"))
   assert.deepEqual(calls.at(-1).params, { pageNumber: 1, pageSize: 10 })
   assert.equal(screen.getByLabelText("Lead status").value, "")
   cleanup()
@@ -445,7 +445,7 @@ test("switching bots resets pagination/filter state and drops the old modal and 
   await openPicker()
   next.rerender(h(PreviewPage, { botId: "74" }))
   assert.equal(screen.queryByRole("dialog"), null)
-  await waitFor(() => assert.equal(calls.at(-1).url, "/api/leads/bot/messaging-preview/74"))
+  await waitFor(() => assert.equal(calls.at(-1).url, "/api/v1/leads/bot/messaging-preview/74"))
 })
 
 test("a late dispatch response cannot acknowledge a job in a new bot workspace", async () => {

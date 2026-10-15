@@ -69,7 +69,7 @@ test("central instance sends JSON and credentials without Authorization", async 
     assert.equal(config.auth, undefined)
     return response(config)
   }
-  await api.get("/api/v1/connectedaccounts", { withCredentials: false, headers: { Authorization: "Bearer forbidden" }, auth: { username: "forbidden", password: "secret" } })
+  await api.get("/api/v1/connectedaccounts/73", { withCredentials: false, headers: { Authorization: "Bearer forbidden" }, auth: { username: "forbidden", password: "secret" } })
 })
 
 test("concurrent 401s share one refresh and retry each request once", async () => {
@@ -91,7 +91,7 @@ test("concurrent 401s share one refresh and retry each request once", async () =
     return response(config, { url: config.url })
   }
   try {
-    const requests = Promise.all([api.get("/one"), api.get("/two"), api.get("/three")])
+    const requests = Promise.all([api.get("/api/v1/bots"), api.get("/api/v1/bots/subscribed"), api.get("/api/v1/settings")])
     await refreshStarted.promise
     completeRefresh.resolve()
     const results = await requests
@@ -112,7 +112,7 @@ test("a delayed 401 from before rotation does not cause another refresh", async 
       return response(config)
     }
     if (!config._authRetry) {
-      if (config.url === "/delayed") {
+      if (config.url === "/api/v1/bots/73") {
         delayedRequestStarted.resolve()
         await deliverDelayed401.promise
       }
@@ -120,9 +120,9 @@ test("a delayed 401 from before rotation does not cause another refresh", async 
     }
     return response(config)
   }
-  const delayed = api.get("/delayed")
+  const delayed = api.get("/api/v1/bots/73")
   await delayedRequestStarted.promise
-  await api.get("/fast")
+  await api.get("/api/v1/bots/subscribed")
   deliverDelayed401.resolve()
   await delayed
   assert.equal(refreshCalls, 1)
@@ -146,7 +146,7 @@ test("failed refresh rejects the queue and emits failure and expiry once", async
     throw httpError(config)
   }
   try {
-    const requests = Promise.allSettled([api.get("/one"), api.get("/two"), api.get("/three")])
+    const requests = Promise.allSettled([api.get("/api/v1/bots"), api.get("/api/v1/bots/subscribed"), api.get("/api/v1/settings")])
     await refreshStarted.promise
     failRefresh.resolve()
     const results = await requests
@@ -155,7 +155,7 @@ test("failed refresh rejects the queue and emits failure and expiry once", async
     assert.equal(expired, 1)
     assert.equal(failed, 1)
     assert.equal(results[0].reason, results[1].reason)
-    await assert.rejects(api.get("/late"), { kind: "unauthorized" })
+    await assert.rejects(api.get("/api/v1/bots/73"), { kind: "unauthorized" })
     assert.equal(refreshCalls, 1)
   } finally { unsubscribeExpiry(); unsubscribeFailure() }
 })
@@ -170,7 +170,7 @@ test("single-session bare payload expires auth immediately without refresh", asy
     throw httpError(config, 401, { message: SESSION_EXPIRED_MESSAGE })
   }
   try {
-    await assert.rejects(api.get("/protected"), { kind: "session", statusCode: 401 })
+    await assert.rejects(api.get("/api/v1/bots"), { kind: "session", statusCode: 401 })
     assert.equal(calls, 1)
     assert.equal(expired, 1)
     assert.equal(expiryEvents[0].kind, "session")
@@ -190,12 +190,12 @@ test("session expiry during refresh prevents queued retries and stale success", 
       return response(config)
     }
     if (config._authRetry) retries += 1
-    throw httpError(config, 401, config.url === "/expired" ? { message: SESSION_EXPIRED_MESSAGE } : "")
+    throw httpError(config, 401, config.url === "/api/v1/bots/73" ? { message: SESSION_EXPIRED_MESSAGE } : "")
   }
   try {
-    const queued = assert.rejects(api.get("/queued"), { kind: "session" })
+    const queued = assert.rejects(api.get("/api/v1/bots/subscribed"), { kind: "session" })
     await refreshStarted.promise
-    await assert.rejects(api.get("/expired"), { kind: "session" })
+    await assert.rejects(api.get("/api/v1/bots/73"), { kind: "session" })
     completeRefresh.resolve()
     await queued
     assert.equal(retries, 0)
@@ -214,7 +214,7 @@ test("a retried 401 expires auth after exactly one retry", async () => {
     attempts += 1
     throw httpError(config)
   }
-  await assert.rejects(api.get("/protected"), { kind: "unauthorized" })
+  await assert.rejects(api.get("/api/v1/bots"), { kind: "unauthorized" })
   assert.equal(refreshCalls, 1)
   assert.equal(attempts, 2)
   assert.ok(refreshCoordinator.getExpiredError())
@@ -294,7 +294,7 @@ test("normalization supports structured, bare, empty, network and unknown errors
   assert.ok(!JSON.stringify(normalized).includes("secret"))
   assert.ok(!JSON.stringify(normalized).includes("private stack"))
   assert.deepEqual(normalizeApiError(httpError({}, 401, "missing cookie")), { kind: "unauthorized", message: "missing cookie", statusCode: 401 })
-  assert.equal(normalizeApiError(httpError({}, 401, { message: "Invalid session token." })).kind, "unauthorized")
+  assert.equal(normalizeApiError(httpError({}, 401, { message: "Invalid session token." })).kind, "session")
   assert.equal(normalizeApiError(httpError({}, 401)).message, "Authentication required.")
   assert.equal(normalizeApiError(httpError({}, 500, { message: "Server failed." })).message, "Server failed.")
   assert.equal(normalizeApiError(new AxiosError("private URL", "ERR_NETWORK")).kind, "network")
@@ -305,7 +305,7 @@ test("normalization supports structured, bare, empty, network and unknown errors
 test("non-401 failures are normalized without refreshing", async () => {
   let calls = 0
   api.defaults.adapter = async (config) => { calls += 1; throw httpError(config, 500, { message: "Server failed." }) }
-  await assert.rejects(api.get("/protected"), { kind: "unknown", message: "Server failed." })
+  await assert.rejects(api.get("/api/v1/bots"), { kind: "unknown", message: "Server failed." })
   assert.equal(calls, 1)
 })
 

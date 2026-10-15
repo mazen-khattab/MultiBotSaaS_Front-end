@@ -92,8 +92,15 @@ These distinguish existing APIs from incomplete frontend work and unsupported op
 | `npm run build` | Compiles TypeScript types and builds the production bundles. |
 | `npm run lint` | Runs ESLint to check for code quality and syntax issues. |
 | `npm run typecheck` | Validates TypeScript types across the codebase without emitting files. |
-| `npm run test` | Runs the automated test suite using the native Node.js test runner. |
+| `npm test` | Runs Vitest once, then all existing Node.js regression tests; suitable for CI. |
+| `npm run test:vitest` | Runs the Vitest component/integration suite once. |
+| `npm run test:watch` | Watches the Vitest suite during development. |
+| `npm run test:legacy` | Runs the existing Node.js regression suite. |
 | `npm run preview` | Locally serves the production build for testing. |
+
+The [testing foundation guide](./docs/PART_27_TESTING.md) explains shared providers,
+wire fixtures, strict MSW handlers, and the difference between mocked HTTP tests
+and live browser verification.
 
 ---
 

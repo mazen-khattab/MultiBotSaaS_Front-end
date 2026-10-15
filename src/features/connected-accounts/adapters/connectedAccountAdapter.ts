@@ -32,11 +32,13 @@ export const connectedAccountDetailSchema = z
     status: z.enum(ACCOUNT_STATUSES).optional(),
     maskedCookies: z.string(),
     relatedLeadsCount: z.number().int().nonnegative(),
-    runsCount: z.number().int().nonnegative(),
+    scrapesCount: z.number().int().nonnegative(),
   })
-  .transform(({ expiredAt, ...account }) => ({
+  .transform(({ expiredAt, scrapesCount, ...account }) => ({
     ...account,
     expiresAt: expiredAt,
+    // Preserve the UI's established naming while accepting only the V2 wire key.
+    runsCount: scrapesCount,
   }));
 
 /** V2 uses cookiesPayload for both writes; encryption belongs to the backend. */

@@ -10,7 +10,7 @@ import { createServer } from "vite"
 const h = React.createElement
 const user = { userId: "first-user", email: "user@example.com", name: "Workspace User", role: "User" }
 const payload = (statusCode, message = "Request failed.") => ({
-  isSuccess: false, statusCode, message, path: "/api/v1/connectedaccounts", method: "GET", traceId: "trace-id",
+  isSuccess: false, statusCode, message, path: "/api/v1/connectedaccounts/73", method: "GET", traceId: "trace-id",
   details: "private stack trace", innerException: "private inner exception",
 })
 const transportError = (status, data = "") => new AxiosError("private transport message", "ERR_BAD_RESPONSE", {}, undefined, {
@@ -170,8 +170,8 @@ test("a terminal Axios refresh failure is not repeated by Query", async () => {
       config, status: 401, statusText: "Unauthorized", headers: {}, data: config.url.endsWith("/refresh") ? "Missing refresh cookie" : "",
     })
   }
-  await assert.rejects(testClient().fetchQuery({ queryKey: queryKeys.accounts.list(), queryFn: async () => (await api.get("/api/v1/connectedaccounts")).data }), { kind: "unauthorized" })
-  assert.deepEqual(paths, ["/api/v1/connectedaccounts", "/api/v1/auth/refresh"])
+  await assert.rejects(testClient().fetchQuery({ queryKey: queryKeys.accounts.list(), queryFn: async () => (await api.get("/api/v1/connectedaccounts/73")).data }), { kind: "unauthorized" })
+  assert.deepEqual(paths, ["/api/v1/connectedaccounts/73", "/api/v1/auth/refresh"])
 })
 
 test("mutations do not automatically repeat writes even after network failure", async () => {

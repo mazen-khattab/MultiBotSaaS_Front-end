@@ -191,7 +191,7 @@ test("hub and Axios 401s share the existing refresh coordinator and reissue with
   }
   const { service } = harness({ send: async () => new HttpResponse(++hubReads === 1 ? 401 : 200) })
   const starting = service.start(session)
-  const http = api.get("/api/v1/test-auth-recovery")
+  const http = api.get("/api/v1/bots")
   await waitFor(() => assert.equal(rotations, 1))
   gate.resolve()
   await Promise.all([starting, http])
@@ -387,7 +387,7 @@ test("real SDK automatically reconnects and app auth refresh/logout retain cooki
   service.observe(() => states.push(service.getSnapshot().status))
   api.defaults.adapter = async (config) => {
     if (config.url.endsWith("/refresh")) rotations++
-    return success(config, config.url.endsWith("/logout") ? true : user)
+    return success(config, config.url.endsWith("/logout") ? null : user)
   }
   render(h(React.StrictMode, null, h(AppProviders, { realtimeService: service }, h(Probe))))
   assert.equal(http.negotiations, 0)
@@ -561,10 +561,10 @@ test("mounted app bridge refetches real feature services with their original bot
     if (config.url === "/api/v1/scrapes") return success(config, { items: [{ id: 42, botId: 73, groupId: 5, accountId: 12,
       collectedLeadsCount: collected, infoJson: "{}", startedAt: "2026-10-15T12:00:00Z", endedAt: null, status: "Running" }],
       totalItems: 40, totalPages: 4, currentPage: 2 })
-    if (config.url === "/api/v1/Leads/leads/74") return success(config, { items: completed ? [] : [lead], totalItems: completed ? 0 : 21, totalPages: completed ? 0 : 3, currentPage: 3 })
-    if (config.url === "/api/v1/Leads/bot/messaging-preview/74") return success(config, { dailyMessageLimit: 5, messagesSent: completed ? 5 : 0,
+    if (config.url === "/api/v1/leads/leads/74") return success(config, { items: completed ? [] : [lead], totalItems: completed ? 0 : 21, totalPages: completed ? 0 : 3, currentPage: 3 })
+    if (config.url === "/api/v1/leads/bot/messaging-preview/74") return success(config, { dailyMessageLimit: 5, messagesSent: completed ? 5 : 0,
       allowedToProcessCount: completed ? 0 : 5, leads: [] })
-    if (config.url === "/api/v1/connectedaccounts/eligible") return success(config, [])
+    if (config.url === "/api/v1/connectedaccounts/eligible/73") return success(config, [])
     throw new Error(`Unexpected event-driven request: ${config.url}`)
   }
   function Reads() {
@@ -608,7 +608,7 @@ test("mounted app bridge refetches real feature services with their original bot
   for (const call of calls.filter((call) => call.url === "/api/v1/scrapes")) {
     assert.deepEqual(call.params, { botId: 73, pageNumber: 2, pageSize: 25, statusFilter: "Running" })
   }
-  for (const call of calls.filter((call) => call.url === "/api/v1/Leads/leads/74")) {
+  for (const call of calls.filter((call) => call.url === "/api/v1/leads/leads/74")) {
     assert.deepEqual(call.params, { pageNumber: 3, pageSize: 10, statusFilter: "Pending" })
   }
 })

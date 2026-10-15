@@ -14,12 +14,12 @@ export const frontendCapabilities = Object.freeze({
     description: "Admin login, current identity and coordinated admin cookie refresh are integrated.",
   },
   userLogout: {
-    status: "frontend-not-implemented", audience: "browser", contract: "§2.1.4, §17.3",
-    description: "User logout exists; the current frontend still expects true instead of the documented null acknowledgment.",
+    status: "available", audience: "browser", contract: "§2.1.4, §17.3",
+    description: "User logout accepts the documented null acknowledgment and clears the frontend session through the existing auth lifecycle.",
   },
   adminLogout: {
-    status: "frontend-not-implemented", audience: "browser", contract: "§2.1.5, §17.3",
-    description: "Admin logout exists; the current frontend still expects true instead of the documented null acknowledgment.",
+    status: "available", audience: "browser", contract: "§2.1.5, §17.3",
+    description: "Admin logout accepts the documented null acknowledgment and clears the frontend session through the existing auth lifecycle.",
   },
   registration: {
     status: "blocked-backend", audience: "browser", contract: "§2.1.6",

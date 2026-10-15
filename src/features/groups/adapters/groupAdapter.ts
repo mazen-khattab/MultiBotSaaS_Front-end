@@ -14,8 +14,12 @@ export const groupListSchema = z.object({
 export const groupDetailSchema = groupListSchema.extend({
   configJson: z.string(),
   relatedLeadsCount: z.number().int().nonnegative(),
-  runsCount: z.number().int().nonnegative(),
-})
+  scrapesCount: z.number().int().nonnegative(),
+}).transform(({ scrapesCount, ...group }) => ({
+  ...group,
+  // Counts arrive as Scrapes; existing UI models deliberately retain runsCount.
+  runsCount: scrapesCount,
+}))
 
 /** Send exactly the published write fields, never detail counts or a row ID. */
 export function toUpdateGroupDto(input: UpdateGroupInput) {

@@ -85,3 +85,7 @@ confirmation of the current backend prefix; it does not silently override the
 earlier change or relabel those integration failures as passing checks.
 
 External plan documents are unchanged. Live backend calls have not been exercised.
+
+Part 27 follow-up: the live contract confirms `/api/v1/leads/...`; the service
+and fixtures now use that route. The historical six-test blocker above is resolved.
+See the [testing report](../../../docs/PART_27_TESTING.md) for current checks.

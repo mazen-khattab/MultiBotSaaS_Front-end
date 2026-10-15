@@ -14,7 +14,7 @@ let originalAdapter
 const originalGlobals = new Map()
 const clients = []
 const group = { id: 5, groupName: "Founders", groupUrl: "https://www.facebook.com/groups/founders", isActive: true }
-const details = { ...group, configJson: '{"keywords":["founder"]}', relatedLeadsCount: 45, runsCount: 3 }
+const details = { ...group, configJson: '{"keywords":["founder"]}', relatedLeadsCount: 45, scrapesCount: 3 }
 const input = { groupName: "New group", groupUrl: group.groupUrl, configJson: '{"minMembers":1000}', isActive: false }
 const success = (config, data) => ({ config, status: 200, statusText: "OK", headers: {}, data: { isSuccess: true, message: "", errorType: 0, data } })
 const failure = (config, message = "Group unavailable") => new AxiosError("Request failed", AxiosError.ERR_BAD_RESPONSE, config, undefined, {
@@ -97,7 +97,7 @@ test("CRUD uses bot-scoped read routes, existing write fields, credentials, and 
     return success(config, config.method === "delete" ? true : "user-id-not-group-id")
   }
   assert.deepEqual(await service.getAll(73, signal), [group])
-  assert.deepEqual(await service.getById(73, 5, signal), details)
+  assert.deepEqual(await service.getById(73, 5, signal), { ...group, configJson: details.configJson, relatedLeadsCount: 45, runsCount: 3 })
   assert.equal(await service.create({ botId: 73, ...input }), undefined)
   assert.equal(await service.update(5, { ...input, id: 999, runsCount: 4 }), undefined)
   assert.equal(await service.delete(5), undefined)
@@ -111,7 +111,7 @@ test("CRUD uses bot-scoped read routes, existing write fields, credentials, and 
 })
 
 test("malformed responses, historical casing, wrong detail IDs and false deletes fail", async () => {
-  for (const data of [{ ...details, id: 6 }, { ...details, groupUrl: undefined, groupURL: group.groupUrl }, { ...details, runsCount: -1 }]) {
+  for (const data of [{ ...details, id: 6 }, { ...details, groupUrl: undefined, groupURL: group.groupUrl }, { ...details, scrapesCount: -1 }]) {
     api.defaults.adapter = async (config) => success(config, data)
     await assert.rejects(service.getById(73, 5))
   }

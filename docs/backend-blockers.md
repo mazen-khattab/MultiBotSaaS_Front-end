@@ -45,13 +45,13 @@ gaps visible as `frontend-not-implemented` rather than `blocked-backend`.
 | `activityLogs` | GET `/api/v1/activity-logs` exists for role User (§11). The frontend needs its read service/page. Correlation runId is opaque and must not be inferred from a Scrape or Job number. |
 | `scraperRunConfiguration` | POST `/api/v1/scrapes` is already implemented generically. Production modules lack approved per-module infoJson schemas and form/serializer configuration. Obtain that workflow contract rather than guessing from sample JSON. |
 | `postScraperRunConfiguration` | FB-POSTS-SCRAPER additionally keeps its metadata fields/version policy unresolved and opaque. Existing history/detail/cancel work; its schema/adapter readiness markers do not serialize production metadata. |
-| `userLogout`, `adminLogout` | Both logout endpoints exist and acknowledge with null data (§2, §17.3). AuthService still requires true, so frontend contract alignment remains incomplete. Document this defect; Part 26 does not alter the auth lifecycle. |
 
-The legacy `/api/leads/...` expectations in existing Leads/workspace tests are
-also frontend fixture drift. The current service uses `/api/v1/Leads/...`; the
-contract documents `/api/v1/leads/...`. Six failures were reproduced before this
-Part (see [Part 25 verification](./PART_25_ADMIN_FEATURES.md)). Do not reclassify
-lead listing, preview or Scrape history as unavailable because of those failures.
+Part 27 resolves the old true-versus-null logout mismatch, aligns Leads read
+fixtures/services with `/api/v1/leads/...`, and aligns eligibility reads with the
+existing bot-path endpoint. The six historical Leads fixture failures and the
+logout mismatch are no longer open blockers; see the
+[testing report](./PART_27_TESTING.md). Lead listing, preview and Scrape history
+remain available APIs throughout those frontend corrections.
 
 ## Available external operations are not missing features
 
