@@ -149,18 +149,18 @@ Cookies are generated via `TokenService`:
 - **Route:** `/api/v1/auth/logout`
 - **Auth Required:** Yes (`[Authorize]`)
 - **Request Body:** None
-- **Response Body (`ApiResponse<bool>`):**
+- **Response Body (`ApiResponse<string>`):**
   ```json
   {
     "isSuccess": true,
-    "message": "Logout successful.",
+    "message": "User logged out successfully.",
     "errorType": 0,
-    "data": true
+    "data": null
   }
   ```
 - **Behavior:**
   - Reads `X-Refresh-Token` from request cookies.
-  - Revokes matching token record in `UserRefreshTokens`.
+  - Clears the authenticated user's current session and revokes the supplied refresh token only when it belongs to that user.
   - Clears `X-Access-Token` and `X-Refresh-Token` cookies (sets expires to epoch in past).
 - **Status Codes:**
   - `200 OK`: Successfully logged out.
@@ -169,9 +169,9 @@ Cookies are generated via `TokenService`:
 #### 2.1.5 Admin Authentication Endpoints
 Separated from standard client tables (`SystemAdmin` and `SystemAdminRefreshTokens`):
 - `POST /api/v1/admin/auth/login`: Accepts `LoginRequestDto`, sets admin cookies, returns admin identity.
-- `GET /api/v1/admin/auth/me`: `[Authorize]`. Returns currently authenticated admin identity (`AuthLoginResponseDto`) without rotating tokens or modifying cookies. Status `200 OK` on success, `401 Unauthorized` if unauthenticated or admin is inactive.
+- `GET /api/v1/admin/auth/me`: `[Authorize(Roles = "Admin,SuperAdmin")]`. Returns currently authenticated admin identity (`AuthLoginResponseDto`) without rotating tokens or modifying cookies. Status `200 OK` on success, `401 Unauthorized` if unauthenticated or admin is inactive, `403 Forbidden` for a regular User principal.
 - `POST /api/v1/admin/auth/refresh`: Rotates admin refresh token from cookie.
-- `POST /api/v1/admin/auth/logout`: Revokes admin refresh token and clears cookies.
+- `POST /api/v1/admin/auth/logout`: `[Authorize(Roles = "Admin,SuperAdmin")]`. Revokes the supplied refresh token only for the authenticated admin and clears cookies. Returns `ApiResponse<string>` with null data. Existing access JWTs remain valid until expiry; see section 17.
 
 #### 2.1.6 Registration & Password Reset
 - **Registration:** **Not Found / Needs Clarification** (No registration endpoint currently exists in `AuthController`; accounts are seeded/created administratively).
@@ -273,13 +273,17 @@ When an operation fails, controllers return the `ApiErrorResponse` model:
 | Enum Name | Integer | HTTP Status | Meaning |
 | :--- | :--- | :--- | :--- |
 | `None` | `0` | 200 OK | Operation succeeded |
-| `ValidationError` | `1` | 400 Bad Request | Invalid inputs or failed business validation |
-| `NotFound` | `2` | 404 Not Found | Resource not found or not owned by user |
-| `Unauthorized` | `3` | 401 Unauthorized | Missing, expired, or invalid session |
-| `Forbidden` | `4` | 403 Forbidden | Access denied |
-| `Conflict` | `5` | 409 Conflict | Concurrency or duplicate state conflict |
-| `ServerError` | `6` | 500 Internal Error | Unhandled server or external network error |
-| `TooManyRequests` | `7` | 429 Too Many Requests | Rate limit or duplicate job already in progress |
+| `InvalidCredentials` | `1` | 401 Unauthorized | Invalid authentication credentials |
+| `Unauthorized` | `2` | 401 Unauthorized | Missing, expired, or invalid authentication |
+| `NotFound` | `3` | 404 Not Found | Resource not found or not owned by user |
+| `InsufficientStock` | `4` | 400 Bad Request | Existing domain validation failure |
+| `BadRequest` | `5` | 400 Bad Request | Invalid request |
+| `ConcurrencyConflict` | `6` | 409 Conflict | Concurrency or duplicate state conflict |
+| `ValidationError` | `7` | 422 Unprocessable Entity | Failed business validation |
+| `TooManyRequests` | `8` | 429 Too Many Requests | Rate limit or duplicate job already in progress |
+| `ServerError` | `9` | 500 Internal Error | Unhandled server or external network error |
+
+`403 Forbidden` comes from role authorization middleware; it is not an `ErrorType` enum member. FluentValidation/model-binding errors return HTTP `400` independently of `ErrorType.ValidationError`.
 
 ---
 
@@ -319,7 +323,7 @@ List endpoints wrapping multiple items return `ApiResponse<PaginatedResult<T>>`:
 - **Auth:** `[Authorize]`
 - **Query Params:** None
 - **Response:** `ApiResponse<List<BotDto>>`
-- **Behavior:** Returns all active bots available in the catalog, including whether the current user is subscribed (`isSubscribed: true/false`).
+- **Behavior:** Returns all active bots available in the catalog, ordered by bot ID, including whether the current user is subscribed (`isSubscribed: true/false`). Subscription metadata is selected only from the authenticated user's UserBot rows; `subscribedAt` maps to the matching UserBot's purchase date.
 
 #### 6.1.2 Get User's Subscribed Bots
 - **Method:** `GET`
@@ -327,7 +331,7 @@ List endpoints wrapping multiple items return `ApiResponse<PaginatedResult<T>>`:
 - **Auth:** `[Authorize]`
 - **Query Params:** None
 - **Response:** `ApiResponse<List<BotDto>>`
-- **Behavior:** Returns only the bots the authenticated user owns via the `UserBot` table.
+- **Behavior:** Returns only the bots the authenticated user owns via the `UserBot` table, ordered by bot ID. This query does not filter `Bot.IsActive`; an existing assignment to an inactive bot remains in this list, unlike the active-only catalog. Each item has `isSubscribed: true` and the user's purchase date in `subscribedAt`.
 
 #### 6.1.3 Get Bot by ID
 - **Method:** `GET`
@@ -335,6 +339,7 @@ List endpoints wrapping multiple items return `ApiResponse<PaginatedResult<T>>`:
 - **Auth:** `[Authorize]`
 - **Query Params:** `requireOwnership` (boolean, optional, default `false`).
 - **Response:** `ApiResponse<BotDto>`
+- **Behavior:** Reads a bot by ID without filtering `IsActive`, with subscription metadata for the authenticated user. Missing bots return `404`, message `Bot not found.` When `requireOwnership=true`, an existing bot without that user's UserBot assignment returns `404`, message `User is not subscribed to this bot.` With the default `false`, catalog/detail reading does not grant workspace ownership.
 
 ### 6.2 Complete `BotDto` Contract
 ```typescript
@@ -371,6 +376,15 @@ Admin-created codes are trimmed and converted to uppercase, contain 1 to 50 lett
 - Do not invent a replacement production code, request/response DTOs, upload/chat behavior, or endpoints. A future integration requires an actual backend-supplied `uiModuleCode` and a documented RAG API contract. Existing generic bot creation alone does not satisfy that requirement.
 - This boundary is verified from repository source; no live database contents were inspected.
 
+### 6.5 Client Overview, Catalog, and Settings Boundaries
+
+- The bot catalog/subscribed/detail endpoints in section 6.1 and current-user settings GET/PUT endpoints in section 10 exist. These client surfaces are not blocked by missing HTTP controllers; frontend integration must use their existing DTOs, cookie authentication, and ownership/role behavior.
+- The current backend exposes no client dashboard/overview aggregate endpoint for metrics such as active workflows or runs today. Do not fabricate aggregate values or treat one paginated list page as an all-user total.
+- Bot catalog reads and `currentPrice` do not provide checkout, payment, or self-service subscription assignment/removal APIs. Subscription management currently uses the Admin/SuperAdmin endpoints in section 14; client pages must not call them as a regular user.
+- Catalog membership, UserBot ownership, bot lifecycle state, and frontend module support are separate facts. The current ownership service checks UserBot presence without an IsActive condition. Resolve workspaces with the actual backend `uiModuleCode`; an unregistered code retains the existing unsupported-module state.
+- Settings read/write details are already defined in section 10: masked secrets on GET, explicit `dailyLeadLimit` and documented partial-field preservation on PUT, and an `ApiResponse<Guid>` save result followed by a GET refetch.
+- These boundaries are verified from the bot/settings controllers and handlers, `UserBotService`, current frontend bot services/workspace loader, and the available client routes. They correct Part 24's previous missing-endpoint assumptions without adding a new product capability.
+
 ---
 
 ## 7. Bot Workspace APIs
@@ -379,9 +393,7 @@ Admin-created codes are trimmed and converted to uppercase, contain 1 to 50 lett
 
 #### 7.1.1 Get Eligible Connected Accounts for Scrape
 - **Method:** `GET`
-- **Routes:**
-  - `/api/v1/connectedaccounts/eligible?botId={botId}`
-  - `/api/v1/connectedaccounts/eligible/{botId}`
+- **Route:** `/api/v1/connectedaccounts/eligible/{botId}` (the query-only alternative is not implemented).
 - **Auth:** `[Authorize]`
 - **Rules Enforced:**
   - Account belongs to authenticated user (`UserId == currentUserId`).
@@ -654,9 +666,9 @@ Admin-created codes are trimmed and converted to uppercase, contain 1 to 50 lett
 - **Route:** `/api/v1/scrapes`
 - **Auth:** `[Authorize]`
 - **Query Params:**
-  - `botId`: Integer (optional)
-  - `pageNumber`: Integer (default `1`)
-  - `pageSize`: Integer (default `10`)
+  - `botId`: Integer (required; positive). The current query validator rejects missing/nonpositive values.
+  - `pageNumber`: Integer (default `1`; at least `1`).
+  - `pageSize`: Integer (default `10`; `1` through `100`).
   - `statusFilter`: String (optional, e.g. `"Running"`, `"Completed"`, `"Cancelled"`, `"Failed"`)
 - **Response Body (`ApiResponse<PaginatedResult<ScrapeDto>>`):**
   ```json
@@ -724,9 +736,9 @@ Admin-created codes are trimmed and converted to uppercase, contain 1 to 50 lett
   ```
 - **State Transitions & Business Rules:**
   - Validates that the scrape belongs to the authenticated user.
-  - Can only cancel scrapes whose status is currently `"Running"`. If already `"Completed"`, `"Failed"`, or `"Cancelled"`, returns `400 Bad Request` (`ValidationError`).
+  - Can only cancel scrapes whose status is currently `"Running"`. If already `"Completed"`, `"Failed"`, or `"Cancelled"`, returns `422 Unprocessable Entity` (`ValidationError`).
   - Updates `Scrape.Status = "Cancelled"` and records `Scrape.EndedAt = DateTime.UtcNow`.
-  - If the attached `ConnectedAccount` is `"Busy"`, reverts its status to `"Active"` so it is immediately unlocked for future scrapes.
+  - If the attached `ConnectedAccount` belongs to the authenticated user and scrape bot and is `"Busy"`, reverts its status to `"Active"`. Inconsistent foreign account links cannot mutate another user's account.
 
 #### 8.1.5 Complete Scrape (n8n Webhook Callback)
 - **Method:** `POST`
@@ -792,8 +804,8 @@ Admin-created codes are trimmed and converted to uppercase, contain 1 to 50 lett
 ## 9. Real-Time SignalR Notification Contract
 
 ### 9.1 Hub Connection Setup
-- **Hub URL:** `/hubs/notifications`
-- **Transport:** WebSockets (fallback to Long Polling).
+- **Hub URL:** `/hubs/notifications` on the configured API origin. Use `VITE_SIGNALR_HUB_URL` in the frontend; the localhost address below is a development example. Cross-origin connections require `withCredentials: true` and an allowed frontend origin under the existing credentialed CORS policy.
+- **Transport:** Default SignalR transport negotiation; the current backend does not configure a transport restriction.
 - **Client Configuration:**
   ```typescript
   import * as signalR from "@microsoft/signalr";
@@ -806,10 +818,22 @@ Admin-created codes are trimmed and converted to uppercase, contain 1 to 50 lett
     .build();
   ```
 
+### 9.1.1 Authentication and Connection Lifecycle
+
+- `AppNotificationHub` is mapped at `/hubs/notifications` and requires `[Authorize]`, with no hub-specific role restriction. JWT bearer authentication reads the `X-Access-Token` HTTP-only cookie for hub requests too; the configured handler does not read an `access_token` query parameter. Browser code must not extract a JWT or supply an `accessTokenFactory`.
+- The existing single-active-session middleware also runs on hub HTTP requests for non-admin users. Its invalid-session responses are the message-only `401` responses described in section 2.2. Existing admin-role exemptions remain unchanged.
+- The backend does not configure `CloseOnAuthenticationExpiration` or implement a proactive hub disconnect on logout/session invalidation. An established connection must not be assumed to close when its original access token expires. The frontend must stop its connection when its auth lifecycle reports logout/session failure. See [Microsoft's SignalR authentication documentation](https://learn.microsoft.com/en-us/aspnet/core/signalr/authn-and-authz?view=aspnetcore-10.0) for connection-lifetime behavior.
+- SignalR negotiation/reconnect requests do not pass through the frontend's Axios interceptor. Recover an actual authentication failure through the existing shared refresh abstraction for the current user/admin realm, then reconnect using the renewed cookie. Do not create a separate token/refresh flow or treat all connection failures as token expiry; a failed refresh or invalidated session ends recovery.
+- `withAutomaticReconnect()` handles loss of an established connection, not an initial `start()` failure; initial failures need explicit handling within the existing connection lifecycle. See [Microsoft's JavaScript client documentation](https://learn.microsoft.com/en-us/aspnet/core/signalr/javascript-client?view=aspnetcore-10.0#reconnect-clients).
+- The hub exposes no application client-callable methods or join/subscribe RPCs. Notifications are sent through `Clients.User(userId.ToString())`, using the authenticated user identifier. Frontend subscribe/unsubscribe registers/removes local event handlers; it does not invoke a subscription endpoint.
+- These details are verified from the hub, authentication/session middleware, hub mapping, CORS registration, notification service, and existing frontend refresh flow. This Part establishes the connection lifecycle; feature event consumption remains in Part 22.
+
 ### 9.2 Real-Time Events Emitted by Server
 
+The current notification service emits exactly the following three case-sensitive event names. Wire payload properties use camelCase under the existing default SignalR JSON protocol; no custom payload naming policy is configured. Each notification is sent to its owner's `Clients.User(userId.ToString())` connections.
+
 #### `ScrapeCompleted`
-- **Trigger:** Fired when a scraping scrape finishes via n8n callback.
+- **Trigger:** Emitted by `CompleteScrapeCommandHandler` after it persists successful completion of a running scrape and its new leads from the n8n callback. `leadsCount` is the number of new leads persisted for that completion, not the user's total lead count; zero is valid. The database update remains successful if sending this notification fails.
 - **Payload:**
   ```typescript
   interface ScrapeCompletedPayload {
@@ -819,17 +843,17 @@ Admin-created codes are trimmed and converted to uppercase, contain 1 to 50 lett
   ```
 
 #### `LeadStatusUpdated`
-- **Trigger:** Fired when a lead status is modified by worker processing.
+- **Trigger:** Emitted by `UpdateLeadStatusCommandHandler` after saving the worker-requested lead status. The handler serializes the current LeadStatus values as `Pending`, `Completed`, or `Failed`; `Contacted` and `Messaged` are not current domain status values.
 - **Payload:**
   ```typescript
   interface LeadStatusUpdatedPayload {
     leadId: number;
-    status: string; // e.g. "Contacted", "Failed"
+    status: "Pending" | "Completed" | "Failed"; // Current serialized LeadStatus values.
   }
   ```
 
 #### `JobFailed`
-- **Trigger:** Fired when a background worker job encounters an unrecoverable failure.
+- **Trigger:** The current emitter is `ProcessJobTimeoutsCommandHandler`: after the watchdog detects a stale processing job, its worker liveness check does not confirm continued processing, and saving the failed state succeeds. This is not a notification for every job-failure path: the worker job-status callback and dispatch-failure compensation currently do not emit `JobFailed`.
 - **Payload:**
   ```typescript
   interface JobFailedPayload {
@@ -837,6 +861,24 @@ Admin-created codes are trimmed and converted to uppercase, contain 1 to 50 lett
     message: string;
   }
   ```
+
+### 9.3 Event Payload Boundaries
+
+- `ScrapeCompleted.scrapeId` identifies a backend `Scrape`, exposed through the existing frontend Runs service/types as the run's `id`. The backend does not emit a `RunCompleted` alias or a `runId` field.
+- `JobFailed.jobId` identifies a worker `Job`; it is not a scrape/run identifier, even when numeric values happen to match.
+- The three payloads contain only the fields shown above. They do not include `botId`, `accountId`, a complete entity, or updated pagination/filter/quota totals. Cache handlers must use an already-known entity-to-bot mapping or invalidate the appropriate existing query scope; they must not infer scope from the currently open workspace or patch a scrape using a worker job ID.
+- No `RunStarted`, `RunProgress`, `LogReceived`, `CounterUpdated`, `WatchdogStatusChanged`, or `AccountStatusChanged` event is emitted by the current backend. The three supported events do not provide a live progress percentage.
+- Event names, fields, status values, and current emission paths are verified from `SignalRNotificationService`, `IAppNotificationService`, the completion/lead-status/watchdog handlers, and the domain status conversion. These details do not add frontend features beyond Part 22's typed event bridge.
+
+### 9.4 Reconnect Recovery and Duplicate Events
+
+- The current hub and API expose no notification replay/resume endpoint, replay cursor, or catch-up subscription method. Stateful reconnect is not enabled in the hub mapping. The payloads in section 9.2 carry no event ID, timestamp, sequence number, or entity version for deduplication or freshness checks.
+- Reconnect restores the notification connection; it does not provide a backend history of missed notifications. Recover current data by invalidating/refetching the affected active queries through existing read services, preserving each query's bot scope, pagination, and filters.
+- Scrape history is available through `GET /api/v1/scrapes` with a required positive `botId`; `GET /api/v1/scrapes/{id}` supports existing detail views. Frontend Runs queries use these Scrapes APIs, so run history is not blocked from reconnect recovery.
+- Existing lead-list and messaging-preview reads return current server state through `GET /api/v1/leads/leads/{botId}` and `GET /api/v1/leads/bot/messaging-preview/{botId}`. Preview quota/eligibility cannot be reconstructed from the three event payloads.
+- Duplicate `ScrapeCompleted` notifications must not be treated as cumulative counter increments. `LeadStatusUpdated` provides a status but no freshness/version marker; use conservative invalidation when a cached-row patch cannot safely represent current filtered/paginated server state.
+- No client worker-job list/read API currently exists for a browser Job-list recovery service. A `JobFailed.jobId` is not a scrape ID. A disconnected browser does not establish that a backend job failed; backend/worker execution is independent of the browser notification connection.
+- These boundaries are verified from the hub mapping/service, available controllers, Scrapes query validation, Leads preview handler, and existing frontend read services. Part 23 reuses these integrations and adds no new backend endpoint or frontend feature.
 
 ---
 
@@ -1450,4 +1492,69 @@ interface LeadDetailsDto {
 - Integration tests use production controllers, JWT cookies, session validation, the MediatR validation pipeline, handlers and relational SQLite with production EF mappings.
 - Coverage includes successful owned retrieval (including an ID beyond Int32), metadata and exact DTO fields; nullable data; unauthorized requests; shared-bot ownership isolation; missing leads; client-supplied ownership values; assignment removal; mismatched bot links; owner-only null-bot history; stale/deactivated sessions; ID validation; and unchanged list/preview routes.
 - No Lead Export, worker log/lead-writing change, billing behavior, or unrelated endpoint is introduced.
+
+---
+
+## 17. Authorization and Integration Verification Pass
+
+### 17.1 Verified Scope
+
+The complete backend suite includes cookie authentication/session flows, bot catalogs and subscriptions, runs (named **Scrapes**, under `/api/v1/scrapes`), connected accounts and eligibility, target groups, lead lists/previews/details, settings, activity logs, and Admin Users/Bots/Subscriptions. No new product endpoint, schema migration, payment behavior, or export was added.
+
+- New HTTP tests exercise 27 protected route/method combinations with anonymous, deleted-user and stale-session requests, plus valid user responses and response field checks.
+- User/Admin/SuperAdmin auth tests verify login, `/me`, refresh rotation/replay rejection, missing/unknown/expired/revoked refresh cookies, user session replacement, logout, cookie flags and token-free response bodies. A valid refresh cookie works with an expired access JWT.
+- Connected account/group tests verify owner-only reads/updates/deletes, shared-bot list isolation, owned CRUD and claims-derived ownership despite supplied query/body user IDs.
+- Run/messaging tests verify subscription checks, matching account/group/lead ownership, account status/activation/cookie eligibility, no database/worker side effects for rejected starts, and scoped cancellation behavior.
+- Existing API suites retain Admin/SuperAdmin versus User boundaries on all management operations, inactive/stale admin checks, duplicate UserBot conflicts, DTO restrictions, settings encryption/masking, log isolation/filtering, and lead details isolation.
+
+### 17.2 Confirmed Security Fixes
+
+1. **Target group update/delete:** The authenticated user ID is now carried through the command and included in the entity lookup. Another user's group returns the same standard `404` as a missing group and remains unchanged. Ownership cannot be supplied by the client.
+2. **Scrape creation:** The selected account must match the authenticated owner and requested bot and have `IsActive == true`; its status/cookie checks still apply. A supplied target group must match the same owner and requested bot. Mismatched/foreign/disabled resources fail before creating a scrape or dispatching work.
+3. **Messaging dispatch:** The existing UserBot ownership check is enforced again. The selected active account must belong to the requested bot, and the existing lead user/bot scope remains enforced. Removing a subscription prevents subsequent dispatch.
+4. **Cancellation:** Releasing a Busy account now requires it to belong to the authenticated owner and scrape bot. An inconsistent foreign account link cannot change another user's account state.
+5. **Admin session routes:** `/api/v1/admin/auth/me` and `/logout` now require the existing Admin/SuperAdmin roles. Anonymous access returns `401`; an authenticated regular User receives `403`.
+6. **Authentication logging:** Raw refresh tokens and database/claimed session-token values are no longer logged. Diagnostic identity/status messages remain.
+
+### 17.3 Response Clarifications
+
+- Successful responses retain `ApiResponse<T>` with `isSuccess`, `message`, `errorType`, and `data`. Auth identity DTOs expose only `userId`, `email`, `name`, and `role`. Access/refresh tokens are set only in HTTP-only cookies.
+- User logout returns `ApiResponse<string>` with message `User logged out successfully.` and `data: null`. It clears the user's current session, revokes the supplied refresh token only if owned by that user, and clears both auth cookies at `/`. Admin logout similarly returns null data and scopes refresh-token revocation by admin ID.
+- Existing `ErrorType.ValidationError` maps to **422 Unprocessable Entity**, including non-Active run/messaging accounts, expired cookies, foreign/invalid messaging leads, and cancellation of non-Running scrapes. FluentValidation and model-binding failures remain `400`; ownership failures remain `404`; authentication/session rejection is `401`; role rejection is `403`.
+- Middleware challenges/forbids, session failures, and missing-refresh responses retain their existing shapes and may not contain `ApiErrorResponse`. Frontend error handling must inspect the HTTP status as well as an available response message.
+- Eligible accounts use `/api/v1/connectedaccounts/eligible/{botId}`. The older contract's query-only alternative was documentation drift and is not an implemented route.
+
+### 17.4 Existing Behavior and Verification Limits
+
+- Admin logout revokes the supplied refresh token and clears cookies; already-issued admin access JWTs remain valid until their normal expiry. Immediate JWT revocation is not introduced by this test/security pass. Existing inactive-admin checks still protect admin `/me` and management endpoints.
+- Diagnostic `/api/v1/reports/*` metadata routes currently have no authorization attribute, and Swagger is enabled outside Development in the existing startup code. They describe types/routes/properties rather than stored user data. Their desired production access policy remains a separate decision; this pass does not invent one. `TestAuthController` has no executable test-login actions.
+- Relational HTTP tests use SQLite with the production EF mappings and SQL Server syntax/default adaptations. Job tests provide a SQLite insert default for SQL Server's generated RowVersion. They do not replace SQL Server rowversion/concurrency verification, live worker/webhook calls, deployment tests, or real-browser cookie-policy tests.
+- The backend verification report records the exact test/build commands, added/modified suites, fixes and results: `docs/AUTHORIZATION_VERIFICATION.md` in the backend project.
+
+### 17.5 Final Verification Results
+
+- Verified on 2026-10-15: **1,246 passing tests**, **0 failed**, **0 skipped** (537 API integration, 498 Application unit, 95 Domain unit, 116 Infrastructure unit).
+- Added 155 HTTP integration cases and 4 unit cases. The complete backend solution build succeeded with 0 errors; 7 cached NU1900 warnings report unavailable NuGet vulnerability-feed metadata. Existing unrelated nullability warnings are unchanged.
+- No unresolved test/build failures remain. The existing policy observations in section 17.4 are documented without changing the authentication model or diagnostic exposure policy.
+
+---
+
+## 18. Admin Dashboard Capability Boundaries
+
+The current backend provides the management APIs in sections 12–14. Part 25 must not describe the entire Admin dashboard as authentication-only or these implemented areas as missing backend capabilities.
+
+| Existing Admin area | Current backend boundary |
+| :--- | :--- |
+| Users | Section 12: regular-user list/detail/create/profile update and deactivate/reactivate. No hard-delete endpoint or administrative-account/role management is exposed by this controller. |
+| Bots | Section 13: list/detail/create/metadata update and activate/deactivate. No delete endpoint; module codes remain immutable through update. |
+| Subscriptions | Section 14: UserBot list/detail/assignment/removal. This is access assignment, not commercial-plan, recurring-billing, payment, or transaction management. |
+| Transactions | A Transaction entity exists internally, but no Admin transaction HTTP API/response DTO is exposed. Do not derive a public transaction contract from entity properties. |
+| Audit logs | No Admin audit-log read API exists. Section 11's activity-log endpoint is scoped to the authenticated regular User and requires the User role; it is not a system-wide administrative audit endpoint. |
+| System configuration | No Admin system-configuration API exists. Section 10 manages the current regular user's settings, not platform configuration. |
+| Overview | No dedicated Admin dashboard/aggregate-metrics endpoint exists. Management APIs do not establish additional KPI or reporting contracts. |
+
+- Management requests use admin authentication cookies with `withCredentials: true` and require Admin/SuperAdmin plus the existing active-admin/current-role check. Authentication includes `GET /api/v1/admin/auth/me` as well as login, refresh, and logout; see section 2.1.5.
+- Commercial plans remain unsupported. Assigning a UserBot creates no charge or transaction, and removing an assignment deletes that relationship rather than creating a recoverable inactive subscription history.
+- Preserve Part 25's existing areas and page composition: only implemented operations may use real service/query integrations; areas without APIs retain explicit unavailable states. This contract adds no product operation or endpoint.
+- These boundaries are verified from the Admin controllers/handlers, authorization checks, available API routes, and existing frontend Admin pages. Existing endpoint methods, DTOs, validation, and lifecycle behavior remain defined in sections 12–14.
 
