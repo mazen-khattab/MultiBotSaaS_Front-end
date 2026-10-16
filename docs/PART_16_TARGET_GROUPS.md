@@ -29,10 +29,27 @@ truth. Section 7.2 supersedes these historical details in external `Part_16.md`:
 Create sends `botId`, `groupName`, `groupUrl`, `configJson`, and `isActive`.
 Update sends the four mutable fields without botId, counts, or a body ID.
 Details contain configuration, activation, related-lead count, and run count.
-The form validates a nonempty name, HTTP/HTTPS URL, and serialized JSON syntax.
-No bot-specific configuration schema, URL domain rule, or business validation
-is invented; the backend owns those rules. Configuration must be entered
-explicitly. Unsafe server URL schemes remain readable text without a link.
+The form validates a nonempty name and HTTP/HTTPS URL. Bot modules can supply
+their own group fields and schema through `createGroupsPageConfig`; parsed
+settings are serialized into the existing `configJson` string. The Facebook
+member scraper now requires positive whole numbers for **Group members count**
+(`groupMembersCount`) and **Scrape members per count** (`scrapeMembersPerCount`).
+For example, the request contains
+`"configJson": "{\"groupMembersCount\":10000,\"scrapeMembersPerCount\":200}"`.
+These frontend keys implement the requested fields; worker consumption has not
+been verified against a live backend.
+
+Editing restores the saved settings and preserves additional top-level JSON
+keys. Existing invalid or non-object configuration retains the JSON editor so
+it can be corrected without silently losing data. Modules without a group
+schema retain the JSON editor and syntax validation. Unsafe server URL schemes
+remain readable text without a link.
+
+`tests/integration/group-configuration.test.tsx` covers the real registry-bound
+member form, numeric validation, exact create/update payloads, restored edit
+values and additional keys, failed-save retries, and a second schema with text
+and checkbox fields. Clearing a prefilled number uses the current form value
+instead of visually restoring its initial default.
 
 ## Bot-scoped reads
 

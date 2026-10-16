@@ -1,9 +1,10 @@
 import { frontendCapabilities } from "@/core/capabilities/frontendCapabilities"
+import type { GroupsPageConfig } from "@/registry/configs/groupsConfig.types"
 import type { RunsPageConfig } from "@/registry/configs/runsConfig.types"
 import type { RunDto } from "@/features/runs/types/runs.types"
 import { defineLeadsScraperModule } from "@/registry/definitions/leadsScraper.shared"
 
-/** Only existing generic Runs UI is registered; bot-specific forms stay deferred. */
+/** Run creation stays disabled until a module supplies its start-run form. */
 export const scraperRunsConfig: RunsPageConfig<Record<string, unknown>> = Object.freeze({
   title: "Runs",
   capabilities: Object.freeze({ canCreateRun: false, canListRuns: true, canGetRun: true, canCancelRun: true, canRetryRun: false }),
@@ -21,10 +22,11 @@ export const scraperRunsConfig: RunsPageConfig<Record<string, unknown>> = Object
 })
 
 /** Preserve the existing modules until a documented specialization changes them. */
-export function defineScraperModule(uiModuleCode: string) {
+export function defineScraperModule(uiModuleCode: string, groupsConfig?: GroupsPageConfig) {
   return defineLeadsScraperModule({
     uiModuleCode,
     supportsGroups: true,
+    groupsConfig,
     supportsLeads: true,
     supportsRuns: true,
     // No module-specific creation schema is defined yet. History, detail, and

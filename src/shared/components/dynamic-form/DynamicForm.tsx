@@ -98,7 +98,7 @@ export function DynamicForm<TInput extends FieldValues, TOutput extends FieldVal
     <form aria-label={label} aria-busy={isSubmitting} noValidate onSubmit={submit} className={cn("space-y-5", className)}>
       <fieldset disabled={disabled || isSubmitting} className="space-y-5">
         {fields.map(({ definition, options: fieldOptions }) => (
-          <DynamicField key={definition.name} definition={definition} control={form.control}
+          <DynamicField key={definition.name} definition={definition} control={form.control} getValues={form.getValues}
             disabled={disabled || isSubmitting || evaluateFieldRule(definition.disabled, values, false)} options={fieldOptions} />
         ))}
       </fieldset>
