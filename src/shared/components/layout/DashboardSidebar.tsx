@@ -28,10 +28,10 @@ export function DashboardSidebar({
   collapsed = false,
 }: DashboardSidebarProps) {
   return (
-    <Sidebar className={cn("transition-[width] duration-200", collapsed && "w-20")}>
+    <Sidebar className={cn("dashboard-sidebar transition-[width] duration-200", collapsed && "w-20")}>
       <SidebarHeader>
         <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
-          <div className="flex size-10 items-center justify-center rounded-xl bg-blue-500 text-white shadow-lg shadow-blue-950/30">
+          <div className="dashboard-brand flex size-10 items-center justify-center rounded-xl bg-blue-500 text-white shadow-lg shadow-blue-950/30">
             <Bot className="size-5" aria-hidden="true" />
           </div>
           <div className={cn("min-w-0", collapsed && "sr-only")}>

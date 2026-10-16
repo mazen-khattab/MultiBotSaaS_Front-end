@@ -45,7 +45,7 @@ export function DashboardHeader({
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-18 items-center justify-between border-b bg-white/90 px-4 backdrop-blur-md sm:px-6 lg:px-8">
+    <header className="dashboard-header sticky top-0 z-30 flex h-18 items-center justify-between border-b bg-white/90 px-4 backdrop-blur-md sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <MobileSidebarTrigger />
         <div className="min-w-0">

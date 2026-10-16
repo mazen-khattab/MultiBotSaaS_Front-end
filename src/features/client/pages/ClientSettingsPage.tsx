@@ -10,9 +10,10 @@ export default function ClientSettingsPage() {
   const { status, user } = useAuth()
   return (
     <PageContainer>
-      <div className="mb-7">
-        <p className="text-sm font-semibold text-blue-600">Preferences</p>
-        <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">Settings</h2>
+      <div className="page-heading">
+        <p className="eyebrow">Your workspace / Preferences</p>
+        <h2>Settings</h2>
+        <p>The details that make this workspace yours. Refine your company identity, set your pace, and manage your connections.</p>
       </div>
       {status === "authenticated" && user?.role === "User" ? <SettingsContent /> : (
         <BackendCapabilityNotice title="User settings unavailable" description="Sign in with a regular user account to manage these settings." />
@@ -26,7 +27,7 @@ function SettingsContent() {
   const settings = useUserSettings()
   const mutation = useSaveUserSettings()
   const secure = canSaveUserSettings()
-  return <div className="max-w-3xl space-y-4">
+  return <div className="space-y-4">
     {settings.isPending ? <p role="status">Loading settings…</p> : null}
     <ApiErrorAlert error={settings.error} title="Unable to load current settings" retrying={settings.isFetching}
       onRetry={() => { void settings.refetch() }} />

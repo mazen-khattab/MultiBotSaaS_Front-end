@@ -44,7 +44,7 @@ export function NavigationItem({ item, onNavigate, collapsed = false }: Navigati
       aria-label={collapsed ? item.title : undefined}
       className={({ isActive }) =>
         cn(
-          "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-white/8 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+          "dashboard-nav-link group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-white/8 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
           collapsed && "justify-center px-2",
           isActive && "bg-blue-500/15 text-blue-100 ring-1 ring-inset ring-blue-400/20",
         )

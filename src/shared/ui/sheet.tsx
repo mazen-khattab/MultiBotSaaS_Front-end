@@ -3,6 +3,7 @@ import { X } from "lucide-react"
 import * as React from "react"
 
 import { cn } from "@/shared/lib/utils"
+import { useClientTheme } from "@/shared/components/layout/ClientThemeContext"
 
 const Sheet = SheetPrimitive.Root
 const SheetTrigger = SheetPrimitive.Trigger
@@ -35,26 +36,30 @@ const sideClasses: Record<NonNullable<SheetContentProps["side"]>, string> = {
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   SheetContentProps
->(({ side = "right", className, children, ...props }, ref) => (
-  <SheetPortal>
-    <SheetOverlay />
-    <SheetPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed z-50 gap-4 bg-background p-6 shadow-xl duration-300",
-        sideClasses[side],
-        className,
-      )}
-      {...props}
-    >
-      {children}
-      <SheetPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <X className="size-5" />
-        <span className="sr-only">Close navigation</span>
-      </SheetPrimitive.Close>
-    </SheetPrimitive.Content>
-  </SheetPortal>
-))
+>(({ side = "right", className, children, ...props }, ref) => {
+  const clientTheme = useClientTheme()
+  return (
+    <SheetPortal>
+      <SheetOverlay />
+      <SheetPrimitive.Content
+        ref={ref}
+        className={cn(
+          "fixed z-50 gap-4 bg-background p-6 shadow-xl duration-300",
+          sideClasses[side],
+          className,
+          clientTheme && "client-theme client-sheet",
+        )}
+        {...props}
+      >
+        {children}
+        <SheetPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <X className="size-5" />
+          <span className="sr-only">Close navigation</span>
+        </SheetPrimitive.Close>
+      </SheetPrimitive.Content>
+    </SheetPortal>
+  )
+})
 SheetContent.displayName = SheetPrimitive.Content.displayName
 
 const SheetHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
