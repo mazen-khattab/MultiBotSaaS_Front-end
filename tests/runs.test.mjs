@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AxiosError } from "axios";
 import { JSDOM } from "jsdom";
 import React from "react";
+import { MemoryRouter } from "react-router-dom";
 import ts from "typescript";
 import { createServer } from "vite";
 import { z } from "zod";
@@ -205,18 +206,20 @@ function mount(props = {}) {
     h(
       QueryClientProvider,
       { client },
-      h(GenericRunsPage, {
+      h(MemoryRouter, null, h(GenericRunsPage, {
         botId: "1",
         config,
         options,
         ...props,
         ...overrides,
-      }),
+      })),
     );
   const view = render(page());
   return { ...view, update: (overrides) => view.rerender(page(overrides)) };
 }
 async function openModal() {
+  // Tests of submission wait for account readiness separately from opening.
+  await waitFor(() => assert.ok(screen.queryByText("Loading eligible connected accounts…") === null));
   await waitFor(() =>
     assert.equal(
       screen.getByRole("button", { name: "Start run" }).disabled,
@@ -542,7 +545,7 @@ test("a late creation response cannot acknowledge a run in another bot workspace
   assert.equal(screen.queryByRole("dialog"), null);
 });
 
-test("an empty eligible response disables start without calling the run API", async () => {
+test("an empty eligible response allows opening the form but prevents submission", async () => {
   let calls = 0;
   api.defaults.adapter = async (request) => {
     calls += 1;
@@ -560,8 +563,11 @@ test("an empty eligible response disables start without calling the run API", as
   );
   assert.equal(
     screen.getByRole("button", { name: "Start run" }).disabled,
-    true,
+    false,
   );
+  await openModal();
+  assert.equal(screen.getByRole("button", { name: "Start run", hidden: false }).disabled, true);
+  submit();
   assert.equal(calls, 0);
 });
 
@@ -819,7 +825,7 @@ test("create invalidates history and eligible accounts so the backend's busy acc
   await screen.findByText("Running", { selector: "td" });
   assert.equal(
     screen.getByRole("button", { name: "Start run" }).disabled,
-    true,
+    false,
   );
   assert.ok(
     screen.getByText(
@@ -829,7 +835,7 @@ test("create invalidates history and eligible accounts so the backend's busy acc
   assert.equal(eligibilityReads, 2);
 });
 
-test("eligible query failure disables start and a successful retry supplies account options", async () => {
+test("eligible query failure keeps the form accessible and a successful retry supplies account options", async () => {
   eligibleResponse = async (request) => {
     throw failure(request, 404, "Bot subscription not found.");
   };
@@ -837,7 +843,7 @@ test("eligible query failure disables start and a successful retry supplies acco
   await screen.findByText("Bot subscription not found.");
   assert.equal(
     screen.getByRole("button", { name: "Start run" }).disabled,
-    true,
+    false,
   );
   eligibleResponse = async (request) => success(request, accounts);
   fireEvent.click(screen.getByRole("button", { name: "Try again" }));

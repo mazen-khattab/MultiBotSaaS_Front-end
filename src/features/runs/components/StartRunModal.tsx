@@ -1,5 +1,6 @@
 import { useRef } from "react"
 import type { FieldValues } from "react-hook-form"
+import { Link } from "react-router-dom"
 
 import { normalizeApiError } from "@/core/api/apiError"
 import { createRunAdapter } from "@/features/runs/adapters/createRunAdapter"
@@ -8,6 +9,7 @@ import type { ConnectedAccountDto } from "@/features/runs/services/EligibleAccou
 import type { StartRunConfig } from "@/registry/configs/runsConfig.types"
 import { DynamicModal } from "@/shared/components/dynamic-form/DynamicModal"
 import type { DynamicFormSubmitResult, DynamicSelectOptions } from "@/shared/components/dynamic-form/dynamicForm.types"
+import { Button } from "@/shared/ui/button"
 
 interface StartRunModalProps<TInput extends FieldValues, TOutput extends FieldValues = TInput> {
   readonly botId: string
@@ -18,6 +20,9 @@ interface StartRunModalProps<TInput extends FieldValues, TOutput extends FieldVa
   readonly onOpenChange: (open: boolean) => void
   readonly onCreated?: (runId: number) => void
   readonly disabled?: boolean
+  readonly unavailableReason?: string
+  readonly onRefreshAccounts?: () => void
+  readonly refreshingAccounts?: boolean
 }
 
 /** Translate contract failures into actionable form errors without a countdown. */
@@ -40,6 +45,7 @@ function getFailureMessage(error: unknown): string {
 /** Reuse shared validation, duplicate-submit protection, and modal lifecycle. */
 export function StartRunModal<TInput extends FieldValues, TOutput extends FieldValues = TInput>({
   botId, config, options, eligibleAccounts, open, onOpenChange, onCreated, disabled = false,
+  unavailableReason, onRefreshAccounts, refreshingAccounts = false,
 }: StartRunModalProps<TInput, TOutput>) {
   const mutation = useCreateRun()
   const createdId = useRef<number | undefined>(undefined)
@@ -58,6 +64,21 @@ export function StartRunModal<TInput extends FieldValues, TOutput extends FieldV
     <DynamicModal open={open} onOpenChange={onOpenChange}
       title={config.title ?? "Start run"} description={config.description}
       config={config.form} options={options} onSubmit={submit} disabled={disabled}
+      beforeForm={unavailableReason ? (
+        <div className="mb-5 space-y-3 rounded-lg border border-primary/15 bg-primary/5 p-4 text-sm">
+          <p role="status">{unavailableReason}</p>
+          <p className="text-muted-foreground">Check your connected accounts, then refresh this list. The server decides which accounts can start a run.</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button asChild variant="outline" size="sm">
+              <Link to={`/dashboard/bots/${botId}/connected-accounts`}>Manage connected accounts</Link>
+            </Button>
+            {onRefreshAccounts ? <Button type="button" variant="ghost" size="sm"
+              disabled={refreshingAccounts || mutation.isPending} onClick={onRefreshAccounts}>
+              {refreshingAccounts ? "Refreshing accounts…" : "Refresh accounts"}
+            </Button> : null}
+          </div>
+        </div>
+      ) : null}
       submitLabel="Start run" submittingLabel="Starting run…"
       onSuccess={() => { if (createdId.current !== undefined) onCreated?.(createdId.current) }} />
   )

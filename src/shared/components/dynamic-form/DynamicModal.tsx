@@ -9,7 +9,7 @@ import type { DynamicModalProps } from "./dynamicForm.types"
 
 /** Each opening owns fresh state, so a late result cannot close another session. */
 function DynamicModalSession<TInput extends FieldValues, TOutput extends FieldValues = TInput>({
-  open, onOpenChange, title, description, onSuccess, ...formProps
+  open, onOpenChange, title, description, beforeForm, onSuccess, ...formProps
 }: DynamicModalProps<TInput, TOutput>) {
   const [submitting, setSubmitting] = useState(false)
   const pending = useRef(false)
@@ -34,6 +34,7 @@ function DynamicModalSession<TInput extends FieldValues, TOutput extends FieldVa
           disabled={submitting} onClick={() => changeOpen(false)}><X aria-hidden="true" /></Button>
         {/* Closing unmounts the form so reopening starts a fresh session, including
             secret input and errors. Use a key when switching records while open. */}
+        {beforeForm}
         {open ? <DynamicForm {...formProps} label={title}
           onSubmittingChange={(next) => { pending.current = next; if (active.current) setSubmitting(next) }}
           onCancel={() => changeOpen(false)}

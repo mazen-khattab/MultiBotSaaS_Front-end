@@ -43,8 +43,8 @@ gaps visible as `frontend-not-implemented` rather than `blocked-backend`.
 | --- | --- |
 | `leadDetail` | GET `/api/v1/leads/{leadId}` and LeadDetailsDto exist (§16). The frontend needs its service, query and view; use the server's owner/linked-assignment rules and nullable fields. |
 | `activityLogs` | GET `/api/v1/activity-logs` exists for role User (§11). The frontend needs its read service/page. Correlation runId is opaque and must not be inferred from a Scrape or Job number. |
-| `scraperRunConfiguration` | POST `/api/v1/scrapes` is already implemented generically. Production modules lack approved per-module infoJson schemas and form/serializer configuration. Obtain that workflow contract rather than guessing from sample JSON. |
-| `postScraperRunConfiguration` | FB-POSTS-SCRAPER additionally keeps its metadata fields/version policy unresolved and opaque. Existing history/detail/cancel work; its schema/adapter readiness markers do not serialize production metadata. |
+| `scraperRunConfiguration` | All three registered scrapers have independent forms using POST `/api/v1/scrapes`. Members and members-messages select an eligible account and currently send empty metadata; Post Scraper supplies searchTerm/maxResults. The modal opens without eligible accounts and explains how to recover; submission still requires eligibility. See [Start run](./START_RUN.md) for customization and live-workflow verification limits. |
+| `postScraperRunConfiguration` | Frontend implemented for the requested searchTerm/maxResults form. The backend/n8n workflow must consume these field names; live workflow execution remains unverified. Historical metadata with another shape stays opaque. See [Start run](./START_RUN.md). |
 
 Part 27 resolves the old true-versus-null logout mismatch, aligns Leads read
 fixtures/services with `/api/v1/leads/...`, and aligns eligibility reads with the

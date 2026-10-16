@@ -41,16 +41,15 @@ function RunsPageSession<TInput extends FieldValues, TOutput extends FieldValues
   );
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const filterId = useId();
-  console.log("GenericRunsPage: botId", botId, "config", config, "options", options);
   const canStart = config.capabilities.canCreateRun && config.startRun !== undefined;
   const runs = useRuns(
     { botId: Number(botId), pageNumber, pageSize, statusFilter },
     config.capabilities.canListRuns,
   );
   const eligible = useEligibleAccounts(Number(botId), canStart);
+  const configurationUnavailableReason = startDisabledReason ?? config.startUnavailableReason;
   const unavailableReason =
-    startDisabledReason ??
-    config.startUnavailableReason ??
+    configurationUnavailableReason ??
     (canStart
       ? eligible.isPending
         ? "Loading eligible connected accounts…"
@@ -122,7 +121,9 @@ function RunsPageSession<TInput extends FieldValues, TOutput extends FieldValues
         </div>
         <Button
           type="button"
-          disabled={!canStart || Boolean(unavailableReason)}
+          // Account readiness blocks submission inside the modal, so users can
+          // still open their form and see how to resolve account problems.
+          disabled={!canStart || Boolean(configurationUnavailableReason)}
           onClick={() => setOpen(true)}
         >
           Start run
@@ -223,6 +224,9 @@ function RunsPageSession<TInput extends FieldValues, TOutput extends FieldValues
           eligibleAccounts={eligible.data ?? []}
           open={open}
           disabled={Boolean(unavailableReason)}
+          unavailableReason={unavailableReason}
+          onRefreshAccounts={() => { void eligible.refetch(); }}
+          refreshingAccounts={eligible.isFetching}
           onOpenChange={setOpen}
           onCreated={setCreatedId}
         />

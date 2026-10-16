@@ -45,8 +45,9 @@ preserves additional stored keys. No group endpoint or DTO shape changes.
 These flags describe frontend implementation. Backend subscription, ownership,
 account eligibility, and authorization checks remain authoritative. All current
 modules retain their established pages, including the Part 17 messaging flow.
-Post Scraper owns its DTO-based run columns and explicitly blocked metadata
-boundary in its module folder; other specializations remain deferred.
+Post Scraper owns its DTO-based run columns and its Search term / Maximum results
+start form and serializer in its module folder. See [Start run](../../../docs/START_RUN.md)
+for the requested metadata format and how to add fields. Other specializations remain deferred.
 
 ## Integration and unavailable actions
 
@@ -58,10 +59,11 @@ boundary in its module folder; other specializations remain deferred.
   current botId, server pagination, and optional status filter. Part 18 confirms
   that botId is required by the current backend despite V2's optional spelling.
   History is available, along with existing detail and cancellation actions.
-- Production Start run remains disabled with an explanation until the module
-  supplies its creation form and selection/serialization configuration. The
-  shared factory can bind that configuration without inventing a production
-  schema. Retry remains unsupported by the backend and cannot be enabled.
+- All three registered scrapers supply independent creation forms and selection/
+  serialization configuration. See [Start run](../../../docs/START_RUN.md) for
+  the current fields and customization steps. Unconfigured modules keep Start run
+  disabled until they supply their own configuration.
+  Retry remains unsupported by the backend and cannot be enabled.
 - The existing Leads service uses the DTO clarification recorded in
   `docs/PART_17_LEADS_AND_MESSAGING.md`, including quota preview and user-initiated
   messaging dispatch. No worker callbacks or secrets are exposed.

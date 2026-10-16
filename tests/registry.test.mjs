@@ -142,28 +142,39 @@ test("shared composition omits unsupported tabs and direct resolution for every 
   }
 })
 
-test("only the documented post scraper code selects its specialized run config", () => {
+test("each registered scraper selects its own creation form", () => {
   assert.equal(resolveBotModule("FB-POSTS-SCRAPER"), postScraperModule)
   assert.equal(postScraperModule.pageConfigs.runs, postScraperRunsConfig)
   assert.equal(postScraperModule.sidebarTabs.find((tab) => tab.slug === "runs").config, postScraperRunsConfig)
-  assert.equal(resolveBotModule("FB-MEMBERS-SCRAPER").pageConfigs.runs, scraperRunsConfig)
-  assert.equal(resolveBotModule("FB-MEMBERS-MESSAGES-SCRAPER").pageConfigs.runs, scraperRunsConfig)
+  const configs = Object.values(botModulesRegistry).map((module) => module.pageConfigs.runs)
+  assert.equal(new Set(configs).size, 3)
+  assert.equal(new Set(configs.map((config) => config.startRun.form.schema)).size, 3)
+  for (const config of configs) {
+    assert.equal(config.capabilities.canCreateRun, true)
+    assert.equal(config.startUnavailableReason, undefined)
+    assert.ok(config.startRun)
+    assert.notEqual(config, scraperRunsConfig)
+  }
   assert.ok(resolveBotModule("FB_POST_SCRAPER") instanceof UnsupportedBotModuleError)
   assert.equal(postScraperRunsConfig.capabilities.canListRuns, true)
   assert.equal(postScraperRunsConfig.capabilities.canGetRun, true)
   assert.equal(postScraperRunsConfig.capabilities.canCancelRun, true)
-  assert.equal(postScraperRunsConfig.capabilities.canCreateRun, false)
-  assert.equal(postScraperRunsConfig.startRun, undefined)
+  assert.equal(postScraperRunsConfig.capabilities.canCreateRun, true)
+  assert.equal(postScraperRunsConfig.startUnavailableReason, undefined)
+  assert.ok(postScraperRunsConfig.startRun)
+  assert.equal(scraperRunsConfig.startRun, undefined)
 })
 
-test("post scraper schema and adapter remain explicitly blocked without a payload fallback", () => {
-  assert.equal(postScraperRunSchema.status, "blocked")
-  assert.match(postScraperRunSchema.reason, /infoJson field schema and version policy/)
-  assert.equal(postScraperRunAdapter.status, "blocked")
-  assert.equal("adapter" in postScraperRunAdapter, false)
-  assert.equal("serializeInfoJson" in postScraperRunAdapter, false)
-  assert.equal("extractInfoJson" in postScraperRunAdapter, false)
-  assert.equal(Object.isFrozen(postScraperRunSchema), true)
+test("post scraper schema validates its custom fields and serializes only its metadata", () => {
+  assert.equal(postScraperRunSchema.safeParse({ accountId: "12", searchTerm: "software", maxResults: 100 }).success, true)
+  assert.equal(postScraperRunSchema.safeParse({ accountId: "", searchTerm: "software", maxResults: 100 }).success, false)
+  assert.equal(postScraperRunAdapter.status, "ready")
+  const { serializeInfoJson, extractInfoJson } = postScraperRunAdapter.adapter
+  assert.equal(serializeInfoJson({ searchTerm: " software ", maxResults: 100 }), '{"searchTerm":"software","maxResults":100}')
+  assert.deepEqual(extractInfoJson('{"searchTerm":"software","maxResults":100}'), { searchTerm: "software", maxResults: 100 })
+  for (const historical of ["{}", "invalid", '{"keywords":["founder"]}', '{"searchTerm":"software","maxResults":100,"accountId":12}']) {
+    assert.equal(extractInfoJson(historical), undefined)
+  }
   assert.equal(Object.isFrozen(postScraperRunAdapter), true)
   assert.equal(Object.isFrozen(postScraperRunsConfig.table.columns), true)
 })
