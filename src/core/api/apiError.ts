@@ -60,7 +60,8 @@ const getPayloadMessage = (payload: unknown): string | undefined => {
 }
 
 export const isSessionExpiredPayload = (payload: unknown): boolean =>
-  getPayloadMessage(payload) === SESSION_EXPIRED_MESSAGE
+  // These are terminal middleware failures, not recoverable access-token expiry.
+  [SESSION_EXPIRED_MESSAGE, "Invalid session token."].includes(getPayloadMessage(payload) ?? "")
 
 // Raw transport errors may contain request bodies and headers. Keep them out of
 // enumerable properties, JSON serialization, and the feature-facing message.
@@ -79,7 +80,7 @@ export const normalizeApiError = (rawError: unknown): NormalizedApiError => {
   let normalized: NormalizedApiError
 
   if (isSessionExpiredPayload(payload) && (!transportError || status === HTTP_STATUS.UNAUTHORIZED)) {
-    normalized = { kind: "session", message: SESSION_EXPIRED_MESSAGE, statusCode: 401 }
+    normalized = { kind: "session", message: message!, statusCode: 401 }
   } else if (isApiErrorResponse(payload)) {
     normalized = {
       kind: "api",

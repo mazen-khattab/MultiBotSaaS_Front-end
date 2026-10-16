@@ -3,7 +3,7 @@
 Read this matrix and the [central backend blockers](./backend-blockers.md) before
 adding an integration. The [live backend contract](./FRONTEND_BACKEND_CONTRACT.md)
 remains authoritative. This inventory was checked against V2 §§2–18 and the current
-frontend after Part 25; older Part reports describe historical implementation scope.
+frontend through Part 27; older Part reports describe historical implementation scope.
 
 ## How to interpret the states
 
@@ -37,8 +37,8 @@ the backend; a matrix state does not grant a role or UserBot ownership.
 | --- | --- | --- | --- |
 | `userAuth` | `available` | §2.1.1–2.1.3: POST `/api/v1/auth/login`, GET `/api/v1/auth/me`, POST `/api/v1/auth/refresh` | [AuthService](../src/services/auth/AuthService.ts), AuthProvider and shared refresh coordinator. |
 | `adminAuth` | `available` | §2.1.5: POST `/api/v1/admin/auth/login`, GET `/api/v1/admin/auth/me`, POST `/api/v1/admin/auth/refresh` | Existing Admin auth flow. Admin/SuperAdmin and active/current-role checks are server responsibilities. |
-| `userLogout` | `frontend-not-implemented` | §2.1.4, §17.3: POST `/api/v1/auth/logout` exists and returns null data | AuthService has a logout request but still checks for `data === true`. Correct acknowledgment handling is pending, not a missing endpoint. |
-| `adminLogout` | `frontend-not-implemented` | §2.1.5, §17.3: POST `/api/v1/admin/auth/logout` exists and returns null data | The shared logout implementation has the same true-versus-null mismatch. Existing mocks do not establish live compatibility. |
+| `userLogout` | `available` | §2.1.4, §17.3: POST `/api/v1/auth/logout` exists and returns null data | Part 27 aligns AuthService with null data and verifies context sign-out through MSW; historical boolean acknowledgments are rejected. |
+| `adminLogout` | `available` | §2.1.5, §17.3: POST `/api/v1/admin/auth/logout` exists and returns null data | The same correction and context regression cover the Admin realm. |
 | `registration` | `blocked-backend` | §2.1.6: no public registration API | Admin regular-user creation is a separate available operation. |
 | `passwordReset` | `blocked-backend` | §2.1.6: no reset/change API | No password-reset or password-change workflow may be inferred. |
 | `botCatalog` | `available` | §6.1.1: GET `/api/v1/bots` | [BotsService](../src/features/bots/services/BotsService.ts), hooks and client catalog/overview. Active catalog includes current-user ownership metadata. |
@@ -67,10 +67,10 @@ never executable backend configuration or a substitute for ownership checks.
 
 | Key | State | Existing backend contract | Frontend evidence / boundary |
 | --- | --- | --- | --- |
-| `leadList` | `available` | §7.3.1: GET `/api/v1/leads/leads/{botId}`; paginated LeadListDto | [LeadsService](../src/features/leads/services/LeadsService.ts), hooks and table exist. Current source uses `/api/v1/Leads`; the existing test mocks still expect obsolete `/api/leads` URLs. |
+| `leadList` | `available` | §7.3.1: GET `/api/v1/leads/leads/{botId}`; paginated LeadListDto | [LeadsService](../src/features/leads/services/LeadsService.ts), hooks and table exist. Part 27 aligns the service and old test fixtures with this canonical versioned route. |
 | `leadDetail` | `frontend-not-implemented` | §7.3.3, §16: GET `/api/v1/leads/{leadId}`; LeadDetailsDto exists | No detail service/hook/view is implemented. No browser ownership selector: server derives user identity and verifies a linked bot assignment. A null-bot historical lead remains owner-only. |
 | `leadExport` | `blocked-backend` | §3.4, §16.3: no export API/format | Do not create an export DTO, route or pretend download. |
-| `messagingPreview` | `available` | §7.3.2: GET `/api/v1/leads/bot/messaging-preview/{botId}` | Existing preview hook/view uses dailyMessageLimit, messagesSent, allowedToProcessCount and leads, not a fabricated local quota. The same legacy test URL drift affects this read. |
+| `messagingPreview` | `available` | §7.3.2: GET `/api/v1/leads/bot/messaging-preview/{botId}` | Existing preview hook/view uses dailyMessageLimit, messagesSent, allowedToProcessCount and leads, not a fabricated local quota. Part 27 corrects the old route fixtures. |
 | `messagingDispatch` | `available` | §7.4.1: POST `/api/v1/worker/dispatch-messaging` with browser cookie auth, no worker key | Existing account picker, adapter and dispatch hook send botId/accountId/leadIds and read jobId/status/totalLeadsCount. Acknowledgment is not delivery completion. |
 | `activityLogs` | `frontend-not-implemented` | §11: GET `/api/v1/activity-logs`, role **User** only | No frontend service/hook/page exists. Supported filters: botId, opaque correlation runId, uppercase logLevel, pageNumber/pageSize. This is not an Admin audit API; runId is not a Scrape/Job ID. |
 | `userSettings` | `available` | §10: GET/PUT `/api/v1/settings`, role **User** only | [UserSettingsService](../src/features/client/services/UserSettingsService.ts) and settings form exist. PUT acknowledges with the user's GUID; GET refetch supplies masks. Company/credential preservation follows §10.3. |
@@ -147,14 +147,17 @@ application client-callable join/subscribe methods.
 4. Run typecheck, lint, existing affected tests and build. This documentation does
    not establish live API/worker/browser verification.
 
-Part 26 adds the complete matrix, centralized blockers and shared page references.
-No missing feature implementation, logout correction, test-fixture repair, new
-endpoint or future testing architecture is included. Repository-wide verification
-still needs the six existing Leads URL-fixture failures documented in
-[Part 25's report](./PART_25_ADMIN_FEATURES.md) resolved; they are frontend test drift,
-not evidence of missing backend APIs.
+Part 26 added the complete matrix, centralized blockers and shared page references.
+Part 27's testing foundation corrects logout acknowledgment handling, canonical
+Leads/eligibility routes, explicit count adapters and the associated fixtures.
+See the [testing report](./PART_27_TESTING.md) for current verification. The six
+Leads failures in [Part 25's report](./PART_25_ADMIN_FEATURES.md) were frontend test
+drift and are resolved; they never indicated missing backend APIs.
 
 ### Part 26 acceptance and checks
+
+The following records the checks at the end of Part 26. Current results are in
+the Part 27 report linked above.
 
 - [x] The matrix covers all required areas, with 52 typed entries whose states
   match the documentation. Backend availability and incomplete frontend/module

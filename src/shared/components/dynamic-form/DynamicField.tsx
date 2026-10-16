@@ -1,5 +1,5 @@
 import { useId } from "react"
-import { Controller, type Control, type FieldValues } from "react-hook-form"
+import { Controller, type Control, type FieldValues, type UseFormGetValues } from "react-hook-form"
 
 import { Button } from "@/shared/ui/button"
 import { DynamicFieldRenderer } from "./fieldRenderers"
@@ -8,12 +8,13 @@ import type { DynamicFieldDefinition, DynamicSelectOptionsState } from "./dynami
 interface DynamicFieldProps<TInput extends FieldValues, TOutput extends FieldValues> {
   definition: DynamicFieldDefinition<TInput>
   control: Control<TInput, undefined, TOutput>
+  getValues: UseFormGetValues<TInput>
   disabled: boolean
   options?: DynamicSelectOptionsState
 }
 
 /** Connect one field to RHF and keep its label, guidance, and errors accessible. */
-export function DynamicField<TInput extends FieldValues, TOutput extends FieldValues>({ definition, control, disabled, options }: DynamicFieldProps<TInput, TOutput>) {
+export function DynamicField<TInput extends FieldValues, TOutput extends FieldValues>({ definition, control, getValues, disabled, options }: DynamicFieldProps<TInput, TOutput>) {
   const id = useId()
   const descriptionId = `${id}-description`
   const errorId = `${id}-error`
@@ -24,7 +25,9 @@ export function DynamicField<TInput extends FieldValues, TOutput extends FieldVa
       return (
         <div className="space-y-2">
           <label htmlFor={id} className="block text-sm font-medium text-foreground">{definition.label}</label>
-          <DynamicFieldRenderer {...definition} id={id} name={field.name} value={field.value}
+          {/* Read the current value so clearing a number to undefined does not
+              visually restore Controller's original default value. */}
+          <DynamicFieldRenderer {...definition} id={id} name={field.name} value={getValues(definition.name)}
             onChange={field.onChange} onBlur={field.onBlur} inputRef={field.ref}
             // Disable the DOM control, preserving its value for schema validation.
             disabled={disabled || Boolean(options?.isLoading || options?.error)}

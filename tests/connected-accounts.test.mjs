@@ -15,7 +15,7 @@ const originalGlobals = new Map()
 const clients = []
 const secret = '[{"name":"c_user","value":"sensitive-test-cookie"}]'
 const account = { id: 12, displayName: "Sales account", platform: "Facebook", expiredAt: "2026-10-25T14:30:00Z", isActive: true }
-const details = { ...account, status: "CoolingDown", maskedCookies: "c_user=***", relatedLeadsCount: 150, runsCount: 14 }
+const details = { ...account, status: "CoolingDown", maskedCookies: "c_user=***", relatedLeadsCount: 150, scrapesCount: 14 }
 const updateInput = { displayName: "New", platform: "Facebook", status: "Active", cookiesPayload: secret, isActive: true }
 const success = (config, data) => ({ config, status: 200, statusText: "OK", headers: {}, data: { isSuccess: true, message: "", errorType: 0, data } })
 const failure = (config, status = 400, message = "Invalid input") => new AxiosError("Request failed", AxiosError.ERR_BAD_RESPONSE, config, undefined, {
@@ -308,7 +308,7 @@ test("edit initializes current status and saves the selected status, platform, c
 
 test("edit waits for a fresh detail response before populating a previously cached account", async () => {
   const { client } = mount()
-  client.setQueryData(queryKeys.accounts.detail(73, 12), { ...details, expiresAt: details.expiredAt, displayName: "Old cached name" })
+  client.setQueryData(queryKeys.accounts.detail(73, 12), { ...details, runsCount: details.scrapesCount, expiresAt: details.expiredAt, displayName: "Old cached name" })
   let finish
   api.defaults.adapter = async (config) => {
     if (config.url.endsWith("/12")) return new Promise((resolve) => { finish = () => resolve(success(config, { ...details, displayName: "Updated server name" })) })

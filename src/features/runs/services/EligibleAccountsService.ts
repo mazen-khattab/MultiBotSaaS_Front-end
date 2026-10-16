@@ -11,15 +11,14 @@ export const connectedAccountSchema = z.object({
 
 export type ConnectedAccountDto = z.infer<typeof connectedAccountSchema>
 
+/** Both existing consumers use the documented bot path. There is no query-only
+ * alias; eligibility, expiry and ownership remain server responsibilities. */
+async function getEligibleAccounts(botId: number, signal?: AbortSignal) {
+  const response = await api.get<unknown>(`/api/v1/connectedaccounts/eligible/${botId}`, { signal })
+  return readApiData(response.data, connectedAccountSchema.array())
+}
+
 export const EligibleAccountsService = {
-  /** The account picker uses the documented equivalent botId path route. */
-  async getEligibleAccountsByBotId(botId: number, signal?: AbortSignal) {
-    const response = await api.get<unknown>(`/api/v1/connectedaccounts/eligible/${botId}`, { signal })
-    return readApiData(response.data, connectedAccountSchema.array())
-  },
-  async getEligibleAccounts(botId: number, signal?: AbortSignal) {
-    // Use one canonical route. Eligibility, expiry, and ownership are server rules.
-    const response = await api.get<unknown>("/api/v1/connectedaccounts/eligible", { params: { botId }, signal })
-    return readApiData(response.data, connectedAccountSchema.array())
-  },
+  getEligibleAccounts,
+  getEligibleAccountsByBotId: getEligibleAccounts,
 }

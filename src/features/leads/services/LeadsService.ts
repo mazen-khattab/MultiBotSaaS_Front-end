@@ -4,8 +4,8 @@ import { readApiData } from "@/core/api/readApiData"
 import { botIdSchema, dispatchMessagingResultSchema, dispatchMessagingSchema, leadsPageSchema, messagingPreviewSchema } from "@/features/leads/types/leads.schemas"
 import type { DispatchMessagingDto, LeadsListParams } from "@/features/leads/types/leads.types"
 
-/** Leads use /api/leads, despite the usual /api/v1 prefix used by dispatch. */
-const leadsEndpoint = "/api/v1/Leads"
+/** Use the canonical V2 route for both list and messaging-preview reads. */
+const leadsEndpoint = "/api/v1/leads"
 
 function requireBotId(botId: number) {
   if (!botIdSchema.safeParse(botId).success) {

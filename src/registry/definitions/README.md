@@ -20,6 +20,7 @@ backend codes continue to show the existing unsupported-module state.
 | `supportsLeads` | Includes Leads and its existing Available leads preview route when true. |
 | `supportsRuns` | Includes Runs only when true; requires `runsConfig`. |
 | `runsConfig` | Existing typed `RunsPageConfig`, including columns, action capabilities, and optional `startRun.form` field schema. |
+| `groupsConfig` | Optional module-owned group fields and validation, composed with the common name, URL, and enabled controls. Parsed settings become `configJson`. |
 
 Accounts remain common to this family. False flags remove both sidebar entries
 and component resolution for direct URLs. Definitions, capability flags, tabs,
@@ -31,6 +32,15 @@ the form's raw inputs, schema transforms, selection resolver, and `infoJson`
 serializer together without casting an untyped route config. Each module can
 supply its own start-run schema through the existing `StartRunConfig` contract.
 Schemas, platform metadata, or backend payload fields are not inferred here.
+
+Group configuration follows the same module boundary. Use
+`createGroupsPageConfig` from `features/groups/forms/groupFormConfig.ts` with a
+typed DynamicForm schema and fields, then pass the result as `groupsConfig`.
+The lazy Groups wrapper binds that config to the shared page. The production
+`FB-MEMBERS-SCRAPER` registration supplies the count fields in
+`features/bot-modules/member-scraper/memberScraperGroups.config.ts`; the other
+modules retain their JSON editor until their fields are defined. Editing
+preserves additional stored keys. No group endpoint or DTO shape changes.
 
 These flags describe frontend implementation. Backend subscription, ownership,
 account eligibility, and authorization checks remain authoritative. All current
@@ -85,3 +95,7 @@ confirmation of the current backend prefix; it does not silently override the
 earlier change or relabel those integration failures as passing checks.
 
 External plan documents are unchanged. Live backend calls have not been exercised.
+
+Part 27 follow-up: the live contract confirms `/api/v1/leads/...`; the service
+and fixtures now use that route. The historical six-test blocker above is resolved.
+See the [testing report](../../../docs/PART_27_TESTING.md) for current checks.

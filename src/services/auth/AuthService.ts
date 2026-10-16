@@ -12,7 +12,8 @@ const login = async (realm: AuthRealm, credentials: LoginRequest) => {
 
 const logout = async (realm: AuthRealm): Promise<void> => {
   const response = await api.post<unknown>(authEndpoints[realm].logout)
-  if (!isApiResponse(response.data) || response.data.data !== true) {
+  // Both realms acknowledge logout with ApiResponse<string> and null data.
+  if (!isApiResponse(response.data) || response.data.data !== null) {
     throw normalizeApiError(response.data)
   }
 }

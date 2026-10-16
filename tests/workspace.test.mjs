@@ -443,8 +443,8 @@ test("shared Runs binds a module's transformed form and serializer instead of th
   const writes = [];
   api.defaults.adapter = async (config) => {
     assert.equal(config.withCredentials, true);
-    if (config.url === "/api/v1/connectedaccounts/eligible") {
-      assert.deepEqual(config.params, { botId: liveBot.id });
+    if (config.url === `/api/v1/connectedaccounts/eligible/${liveBot.id}`) {
+      assert.equal(config.params, undefined);
       return apiResponse(config, [{ id: 12, displayName: "Fixture eligible", platform: "Facebook", expiredAt: "2026-10-25T14:30:00Z", isActive: true }]);
     }
     assert.equal(config.url, "/api/v1/scrapes");
@@ -472,11 +472,11 @@ test("lead listing navigates to a separate quota preview and account picker disp
   let posts = 0;
   api.defaults.adapter = async (config) => {
     if (config.url === `/api/v1/bots/${liveBot.id}`) return apiResponse(config, liveBot);
-    if (config.url === `/api/leads/leads/${liveBot.id}`) {
+    if (config.url === `/api/v1/leads/leads/${liveBot.id}`) {
       assert.deepEqual(config.params, { pageNumber: 1, pageSize: 10 });
       return apiResponse(config, { items: [lead], currentPage: 1, totalItems: 1, totalPages: 1 });
     }
-    if (config.url === `/api/leads/bot/messaging-preview/${liveBot.id}`) return apiResponse(config, { dailyMessageLimit: 30, messagesSent: 5, allowedToProcessCount: 25, leads: [previewLead] });
+    if (config.url === `/api/v1/leads/bot/messaging-preview/${liveBot.id}`) return apiResponse(config, { dailyMessageLimit: 30, messagesSent: 5, allowedToProcessCount: 25, leads: [previewLead] });
     if (config.url === `/api/v1/connectedaccounts/eligible/${liveBot.id}`) return apiResponse(config, [{ id: 12, displayName: "Messaging account", platform: "Facebook", expiredAt: "2026-10-25T14:30:00Z", isActive: true }]);
     assert.equal(config.url, "/api/v1/worker/dispatch-messaging");
     assert.equal(config.method, "post");

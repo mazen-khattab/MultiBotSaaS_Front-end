@@ -79,7 +79,7 @@ before(async () => {
   originalAdapter = api.defaults.adapter;
   // Route eligible reads separately so each test's write adapter remains real.
   eligibleInterceptor = api.interceptors.request.use((request) => {
-    if (request.url === "/api/v1/connectedaccounts/eligible")
+    if (request.url?.startsWith("/api/v1/connectedaccounts/eligible/"))
       request.adapter = eligibleResponse;
     return request;
   });
@@ -549,7 +549,8 @@ test("an empty eligible response disables start without calling the run API", as
     return success(request);
   };
   eligibleResponse = async (request) => {
-    assert.equal(request.params.botId, 1);
+    assert.equal(request.url, "/api/v1/connectedaccounts/eligible/1");
+    assert.equal(request.params, undefined);
     assert.equal(request.withCredentials, true);
     return success(request, []);
   };
@@ -850,8 +851,8 @@ test("eligible query failure disables start and a successful retry supplies acco
 test("eligible DTO validation requires expiredAt and never substitutes the old expiry property", async () => {
   eligibleResponse = async (request) => {
     assert.equal(request.method, "get");
-    assert.equal(request.url, "/api/v1/connectedaccounts/eligible");
-    assert.deepEqual(request.params, { botId: 1 });
+    assert.equal(request.url, "/api/v1/connectedaccounts/eligible/1");
+    assert.equal(request.params, undefined);
     return success(request, accounts);
   };
   assert.deepEqual(

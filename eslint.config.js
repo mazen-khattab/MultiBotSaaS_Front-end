@@ -20,5 +20,11 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    files: ["src/test/renderWithProviders.tsx"],
+    // This test utility deliberately exports a render function and a wrapper
+    // factory; it is not a production Fast Refresh component entry point.
+    rules: { "react-refresh/only-export-components": "off" },
+  },
 ])
 
