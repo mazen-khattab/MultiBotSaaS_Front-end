@@ -38,16 +38,18 @@ export default function BotTabRoutePage() {
 
   return (
     <PageContainer>
-      <div className="mb-7">
-        <p className="text-sm font-semibold text-blue-600">Bot module</p>
-        <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
+      <div className="page-heading">
+        <p className="eyebrow">{workspace.descriptor.name} / Workspace</p>
+        <h2>
           {tab.label}
         </h2>
       </div>
       {/* Loading stays inside the workspace shell while the lazy page arrives. */}
-      <Suspense fallback={<p role="status" className="py-8 text-sm text-muted-foreground">Loading {tab.label}…</p>}>
-        <BotTabContent key={`${workspace.descriptor.botId}:${tab.slug}`} component={Component} botId={workspace.descriptor.botId} config={tab.config} />
-      </Suspense>
+      <div className="luxury-panel client-tab-panel">
+        <Suspense fallback={<p role="status" className="py-8 text-sm text-muted-foreground">Loading {tab.label}…</p>}>
+          <BotTabContent key={`${workspace.descriptor.botId}:${tab.slug}`} component={Component} botId={workspace.descriptor.botId} config={tab.config} />
+        </Suspense>
+      </div>
     </PageContainer>
   )
 }

@@ -1,12 +1,14 @@
 import { Bot } from "lucide-react"
-import { Outlet } from "react-router-dom"
+import { Outlet, useLocation } from "react-router-dom"
 
 import { APP_NAME, APP_TAGLINE } from "@/core/constants/app"
+import { routePaths } from "@/app/router/routePaths"
 
 export default function AuthLayout() {
+  const clientLogin = useLocation().pathname === routePaths.login
   return (
-    <main className="grid min-h-screen bg-white lg:grid-cols-[minmax(0,1fr)_minmax(26rem,0.8fr)]">
-      <section className="relative hidden overflow-hidden bg-slate-950 p-12 text-white lg:flex lg:flex-col lg:justify-between">
+    <main className={`${clientLogin ? "client-theme client-auth " : ""}grid min-h-screen bg-white lg:grid-cols-[minmax(0,1fr)_minmax(26rem,0.8fr)]`}>
+      <section className="auth-story relative hidden overflow-hidden bg-slate-950 p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-70" aria-hidden="true">
           <span className="absolute left-[18%] top-[18%] size-80 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/40 blur-3xl" />
           <span className="absolute bottom-[12%] right-[8%] size-72 rounded-full bg-primary/25 blur-3xl" />
@@ -32,7 +34,7 @@ export default function AuthLayout() {
       </section>
 
       <section className="flex min-h-screen items-center justify-center bg-background p-5 sm:p-8">
-        <div className="w-full max-w-md">
+        <div className={clientLogin ? "client-page-enter w-full max-w-md" : "w-full max-w-md"}>
           <div className="mb-10 flex items-center gap-3 lg:hidden">
             <span className="flex size-10 items-center justify-center rounded-xl bg-blue-600 text-white">
               <Bot className="size-5" aria-hidden="true" />

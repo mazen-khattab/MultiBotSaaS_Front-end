@@ -174,7 +174,7 @@ test("lead table shows exact supplied fields and safe profiles without unsupport
   assert.equal(screen.getByRole("link", { name: "Available leads" }).getAttribute("href"), "/dashboard/bots/73/messaging-preview")
 })
 
-test("pagination, page size, arbitrary status, and clearing status send server params and reset page", async () => {
+test("pagination, page size, selected status, and clearing status send server params and reset page", async () => {
   const calls = []
   api.defaults.adapter = async (config) => {
     calls.push({ url: config.url, params: config.params })
@@ -188,19 +188,23 @@ test("pagination, page size, arbitrary status, and clearing status send server p
   await screen.findByText("Page 1")
   fireEvent.click(screen.getByRole("button", { name: "Next" }))
   await screen.findByText("Page 2")
-  fireEvent.change(screen.getByLabelText("Lead status"), { target: { value: "  Arbitrary status  " } })
+  const statusFilter = screen.getByRole("combobox", { name: "Lead status" })
+  assert.deepEqual(within(statusFilter).getAllByRole("option").map((option) => [option.textContent, option.value]), [
+    ["All statuses", ""], ["Pending", "Pending"], ["Completed", "Completed"], ["Failed", "Failed"],
+  ])
+  fireEvent.change(statusFilter, { target: { value: "Completed" } })
   assert.equal(calls.length, 4)
   fireEvent.click(screen.getByRole("button", { name: "Apply filter" }))
   await screen.findByText("Page 1")
-  assert.equal(calls.at(-1).params.statusFilter, "Arbitrary status")
+  assert.equal(calls.at(-1).params.statusFilter, "Completed")
   // Display the server row even when its status differs; no client filtering.
-  assert.ok(screen.getByText("Pending"))
+  assert.ok(within(screen.getByRole("table", { name: "Bot leads" })).getByText("Pending"))
   fireEvent.click(screen.getByRole("button", { name: "Clear filter" }))
   await waitFor(() => assert.equal(calls.length, 6))
   assert.deepEqual(calls.map(({ params }) => params), [
     { pageNumber: 1, pageSize: 10 }, { pageNumber: 2, pageSize: 10 },
     { pageNumber: 1, pageSize: 25 }, { pageNumber: 2, pageSize: 25 },
-    { pageNumber: 1, pageSize: 25, statusFilter: "Arbitrary status" }, { pageNumber: 1, pageSize: 25 },
+    { pageNumber: 1, pageSize: 25, statusFilter: "Completed" }, { pageNumber: 1, pageSize: 25 },
   ])
 })
 
@@ -433,9 +437,9 @@ test("switching bots resets pagination/filter state and drops the old modal and 
   api.defaults.adapter = async (config) => { calls.push({ url: config.url, params: config.params }); return defaultResponse(config) }
   const { rerender } = mount()
   await screen.findByText(lead.profileName)
-  fireEvent.change(screen.getByLabelText("Lead status"), { target: { value: "Custom" } })
+  fireEvent.change(screen.getByLabelText("Lead status"), { target: { value: "Failed" } })
   fireEvent.click(screen.getByRole("button", { name: "Apply filter" }))
-  await waitFor(() => assert.equal(calls.at(-1).params.statusFilter, "Custom"))
+  await waitFor(() => assert.equal(calls.at(-1).params.statusFilter, "Failed"))
   rerender(h(LeadsPage, { botId: "74" }))
   await waitFor(() => assert.equal(calls.at(-1).url, "/api/v1/leads/leads/74"))
   assert.deepEqual(calls.at(-1).params, { pageNumber: 1, pageSize: 10 })

@@ -3,6 +3,7 @@ import { Check, ChevronRight, Circle } from "lucide-react"
 import * as React from "react"
 
 import { cn } from "@/shared/lib/utils"
+import { useClientTheme } from "@/shared/components/layout/ClientThemeContext"
 
 const DropdownMenu = DropdownMenuPrimitive.Root
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger
@@ -36,24 +37,28 @@ const menuContentClass =
 const DropdownMenuSubContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.SubContent>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent>
->(({ className, ...props }, ref) => (
-  <DropdownMenuPrimitive.SubContent ref={ref} className={cn(menuContentClass, className)} {...props} />
-))
+>(({ className, ...props }, ref) => {
+  const clientTheme = useClientTheme()
+  return <DropdownMenuPrimitive.SubContent ref={ref} className={cn(menuContentClass, clientTheme && "client-theme client-menu", className)} {...props} />
+})
 DropdownMenuSubContent.displayName = DropdownMenuPrimitive.SubContent.displayName
 
 const DropdownMenuContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
->(({ className, sideOffset = 6, ...props }, ref) => (
-  <DropdownMenuPortal>
-    <DropdownMenuPrimitive.Content
-      ref={ref}
-      sideOffset={sideOffset}
-      className={cn(menuContentClass, className)}
-      {...props}
-    />
-  </DropdownMenuPortal>
-))
+>(({ className, sideOffset = 6, ...props }, ref) => {
+  const clientTheme = useClientTheme()
+  return (
+    <DropdownMenuPortal>
+      <DropdownMenuPrimitive.Content
+        ref={ref}
+        sideOffset={sideOffset}
+        className={cn(menuContentClass, clientTheme && "client-theme client-menu", className)}
+        {...props}
+      />
+    </DropdownMenuPortal>
+  )
+})
 DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName
 
 const DropdownMenuItem = React.forwardRef<

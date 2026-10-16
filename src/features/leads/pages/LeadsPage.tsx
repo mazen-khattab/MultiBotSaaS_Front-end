@@ -8,7 +8,7 @@ import { useLeads } from "@/features/leads/hooks/useLeads"
 import type { BotTabComponentProps } from "@/registry/botRegistry.types"
 import { Button } from "@/shared/ui/button"
 
-/** Pagination and free-form status filtering describe only the server request. */
+/** Pagination and status filtering describe only the server request. */
 function LeadsSession({ botId }: BotTabComponentProps) {
   const [pageNumber, setPageNumber] = useState(1)
   const [pageSize, setPageSize] = useState(10)

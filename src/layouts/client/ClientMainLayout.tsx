@@ -8,6 +8,7 @@ import { DashboardSidebar } from "@/shared/components/layout/DashboardSidebar"
 export default function ClientMainLayout() {
   return (
     <DashboardShell
+      appearance="client"
       title="Workspace"
       description="Your automation command center"
       sidebar={(onNavigate) => (

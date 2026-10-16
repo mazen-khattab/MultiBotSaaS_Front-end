@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom"
 
 import { RealtimeConnectionStatus } from "@/features/realtime/RealtimeConnectionStatus"
 import { DashboardHeader } from "@/shared/components/layout/DashboardHeader"
+import { ClientThemeContext, useClientTheme } from "@/shared/components/layout/ClientThemeContext"
 import { useSidebar } from "@/shared/hooks/useSidebar"
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/shared/ui/sheet"
 import { SidebarProvider } from "@/shared/ui/sidebar"
@@ -13,6 +14,7 @@ interface DashboardShellProps {
   description?: string
   accountLabel?: string
   children: ReactNode
+  appearance?: "client"
 }
 
 function DashboardShellContent({
@@ -23,6 +25,7 @@ function DashboardShellContent({
   children,
 }: DashboardShellProps) {
   const location = useLocation()
+  const clientTheme = useClientTheme()
   const { mobileOpen, setMobileOpen } = useSidebar()
 
   useEffect(() => {
@@ -30,7 +33,7 @@ function DashboardShellContent({
   }, [location.pathname, setMobileOpen])
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className={clientTheme ? "client-theme client-dashboard min-h-screen bg-background" : "min-h-screen bg-background"}>
       <div className="fixed inset-y-0 left-0 z-40 hidden w-72 md:block">{sidebar()}</div>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -47,7 +50,7 @@ function DashboardShellContent({
         <DashboardHeader title={title} description={description} accountLabel={accountLabel} />
         <RealtimeConnectionStatus />
         <main id="main-content" className="min-h-[calc(100vh-4.5rem)]">
-          {children}
+          {clientTheme ? <div className="client-page-enter" key={location.pathname}>{children}</div> : children}
         </main>
       </div>
     </div>
@@ -56,8 +59,10 @@ function DashboardShellContent({
 
 export function DashboardShell(props: DashboardShellProps) {
   return (
-    <SidebarProvider>
-      <DashboardShellContent {...props} />
-    </SidebarProvider>
+    <ClientThemeContext.Provider value={props.appearance === "client"}>
+      <SidebarProvider>
+        <DashboardShellContent {...props} />
+      </SidebarProvider>
+    </ClientThemeContext.Provider>
   )
 }

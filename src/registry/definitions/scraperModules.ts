@@ -7,7 +7,7 @@ import { defineLeadsScraperModule } from "@/registry/definitions/leadsScraper.sh
 /** Run creation stays disabled until a module supplies its start-run form. */
 export const scraperRunsConfig: RunsPageConfig<Record<string, unknown>> = Object.freeze({
   title: "Runs",
-  capabilities: Object.freeze({ canCreateRun: false, canListRuns: true, canGetRun: true, canCancelRun: true, canRetryRun: false }),
+  capabilities: Object.freeze({ canCreateRun: true, canListRuns: true, canGetRun: true, canCancelRun: true, canRetryRun: false }),
   startUnavailableReason: frontendCapabilities.scraperRunConfiguration.description,
   table: Object.freeze({
     caption: "Run history",

@@ -352,3 +352,31 @@ test("Bots preserves real independent reads, lifecycle and assignments without p
   assert.equal(screen.queryByRole("button", { name: /purchase|subscribe|checkout/i }), null)
   assert.deepEqual(calls.sort(), ["/api/v1/bots", "/api/v1/bots/subscribed"])
 })
+
+test("Bots keeps subscriptions out of discovery even when the catalog metadata is stale", async () => {
+  const assigned = { ...bot, name: "Assigned bot", isSubscribed: true }
+  api.defaults.adapter = async (config) => config.url.endsWith("/subscribed")
+    ? success(config, [assigned])
+    : success(config, [{ ...assigned, isSubscribed: false }, { ...bot, id: 74, name: "Discover bot" }])
+  mount(BotsPage)
+  const owned = screen.getByRole("region", { name: "Subscribed bots" })
+  const discovery = screen.getByRole("region", { name: "Bot catalog" })
+  await within(owned).findByRole("heading", { name: "Assigned bot" })
+  await within(discovery).findByRole("heading", { name: "Discover bot" })
+  await waitFor(() => assert.equal(within(discovery).queryByRole("heading", { name: "Assigned bot" }), null))
+  assert.equal(screen.getAllByRole("heading", { name: "Assigned bot" }).length, 1)
+  assert.equal(within(discovery).queryByRole("link", { name: "Open workspace" }), null)
+})
+
+test("Bots respects catalog subscription metadata when the independent subscription read fails", async () => {
+  api.defaults.adapter = async (config) => {
+    if (config.url.endsWith("/subscribed")) throw failure(config, 503, "Subscriptions temporarily unavailable")
+    return success(config, [{ ...bot, name: "Owned catalog bot", isSubscribed: true }, { ...bot, id: 74, name: "Discover bot" }])
+  }
+  mount(BotsPage)
+  const discovery = screen.getByRole("region", { name: "Bot catalog" })
+  await within(discovery).findByRole("heading", { name: "Discover bot" })
+  await screen.findByRole("alert")
+  assert.equal(within(discovery).queryByRole("heading", { name: "Owned catalog bot" }), null)
+  assert.equal(within(discovery).queryByRole("link"), null)
+})

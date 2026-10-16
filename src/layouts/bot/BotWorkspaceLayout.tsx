@@ -26,6 +26,7 @@ export default function BotWorkspaceLayout({ registry }: { registry?: BotModules
 
   return (
     <DashboardShell
+      appearance="client"
       title={workspaceTitle}
       description="Bot workspace"
       sidebar={(onNavigate) => (

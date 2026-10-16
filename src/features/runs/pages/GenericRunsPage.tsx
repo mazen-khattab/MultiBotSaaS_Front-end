@@ -41,6 +41,7 @@ function RunsPageSession<TInput extends FieldValues, TOutput extends FieldValues
   );
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const filterId = useId();
+  console.log("GenericRunsPage: botId", botId, "config", config, "options", options);
   const canStart = config.capabilities.canCreateRun && config.startRun !== undefined;
   const runs = useRuns(
     { botId: Number(botId), pageNumber, pageSize, statusFilter },
