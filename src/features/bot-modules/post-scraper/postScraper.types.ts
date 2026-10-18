@@ -1,8 +1,7 @@
 import type { RunDto } from "@/features/runs/types/runs.types"
 
 /**
- * Implement this inside the module once its metadata contract is approved.
- * TMetadata describes that future payload, not account/group selections or the
+ * TMetadata describes the module's run settings, not account/group selections or the
  * outer CreateRunDto. An unrecognized stored payload must remain unextracted.
  */
 export interface PostScraperRunAdapter<TMetadata> {

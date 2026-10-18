@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import type { FieldValues } from "react-hook-form";
 
 import { StartRunModal } from "@/features/runs/components/StartRunModal";
@@ -23,6 +23,9 @@ interface GenericRunsPageProps<TInput extends FieldValues, TOutput extends Field
   // Features supply query-backed select data and readiness, never the renderer.
   readonly options?: DynamicSelectOptions;
   readonly startDisabledReason?: string;
+  // Option readiness blocks the modal's form without hiding its recovery UI.
+  readonly startFormDisabled?: boolean;
+  readonly startFormNotice?: ReactNode;
 }
 
 /** Own a session per bot so late submissions cannot update another workspace. */
@@ -31,6 +34,8 @@ function RunsPageSession<TInput extends FieldValues, TOutput extends FieldValues
   config,
   options,
   startDisabledReason,
+  startFormDisabled = false,
+  startFormNotice,
 }: GenericRunsPageProps<TInput, TOutput>) {
   const [open, setOpen] = useState(false);
   const [createdId, setCreatedId] = useState<number | null>(null);
@@ -41,16 +46,15 @@ function RunsPageSession<TInput extends FieldValues, TOutput extends FieldValues
   );
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const filterId = useId();
-  console.log("GenericRunsPage: botId", botId, "config", config, "options", options);
   const canStart = config.capabilities.canCreateRun && config.startRun !== undefined;
   const runs = useRuns(
     { botId: Number(botId), pageNumber, pageSize, statusFilter },
     config.capabilities.canListRuns,
   );
   const eligible = useEligibleAccounts(Number(botId), canStart);
+  const configurationUnavailableReason = startDisabledReason ?? config.startUnavailableReason;
   const unavailableReason =
-    startDisabledReason ??
-    config.startUnavailableReason ??
+    configurationUnavailableReason ??
     (canStart
       ? eligible.isPending
         ? "Loading eligible connected accounts…"
@@ -122,7 +126,9 @@ function RunsPageSession<TInput extends FieldValues, TOutput extends FieldValues
         </div>
         <Button
           type="button"
-          disabled={!canStart || Boolean(unavailableReason)}
+          // Account readiness blocks submission inside the modal, so users can
+          // still open their form and see how to resolve account problems.
+          disabled={!canStart || Boolean(configurationUnavailableReason)}
           onClick={() => setOpen(true)}
         >
           Start run
@@ -222,7 +228,11 @@ function RunsPageSession<TInput extends FieldValues, TOutput extends FieldValues
           options={formOptions}
           eligibleAccounts={eligible.data ?? []}
           open={open}
-          disabled={Boolean(unavailableReason)}
+          disabled={Boolean(unavailableReason) || startFormDisabled}
+          notice={startFormNotice}
+          unavailableReason={unavailableReason}
+          onRefreshAccounts={() => { void eligible.refetch(); }}
+          refreshingAccounts={eligible.isFetching}
           onOpenChange={setOpen}
           onCreated={setCreatedId}
         />

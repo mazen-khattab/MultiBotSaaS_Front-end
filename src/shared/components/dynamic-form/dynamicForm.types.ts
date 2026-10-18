@@ -1,5 +1,6 @@
 import type { DefaultValues, DeepPartialSkipArrayKey, FieldPath, FieldPathByValue, FieldPathValue, FieldValues } from "react-hook-form"
 import type { ZodType } from "zod"
+import type { ReactNode } from "react"
 
 export type DynamicFieldType = "text" | "textarea" | "select" | "number" | "checkbox" | "switch"
 
@@ -101,4 +102,5 @@ export interface DynamicModalProps<TInput extends FieldValues, TOutput extends F
   readonly onOpenChange: (open: boolean) => void
   readonly title: string
   readonly description?: string
+  readonly beforeForm?: ReactNode
 }

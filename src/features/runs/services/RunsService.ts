@@ -35,7 +35,7 @@ export const RunsService = {
     return run
   },
   async cancelRun(id: number): Promise<void> {
-    const response = await api.post<unknown>(`/api/v1/scrapes/${id}/cancel`)
+    const response = await api.put<unknown>(`/api/v1/scrapes/${id}/cancel`)
     readApiData(response.data, z.literal(true))
   },
 }

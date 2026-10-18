@@ -58,12 +58,12 @@ export const frontendCapabilities = Object.freeze({
     description: "Generic Scrape creation is integrated through the Runs service, hook and modal; production module configuration is a separate prerequisite.",
   },
   scraperRunConfiguration: {
-    status: "frontend-not-implemented", audience: "browser", contract: "§3.4, §8.1.1",
-    description: "Run creation will be available when this module's run configuration is ready.",
+    status: "available", audience: "browser", contract: "§3.4, §8.1.1",
+    description: "All three registered scrapers require an eligible account and an active bot-scoped target group. Module-specific custom fields become infoJson; the group ID is sent as targetGroupId.",
   },
   postScraperRunConfiguration: {
-    status: "frontend-not-implemented", audience: "browser", contract: "§3.4, §8.1.1",
-    description: "Starting a post scrape is unavailable until its run settings are ready.",
+    status: "available", audience: "browser", contract: "§3.4, §8.1.1",
+    description: "Post Scraper has account and target-group pickers, a validated search term and result limit, and a module-owned infoJson serializer.",
   },
   runHistory: {
     status: "available", audience: "browser", contract: "§8.1.2",

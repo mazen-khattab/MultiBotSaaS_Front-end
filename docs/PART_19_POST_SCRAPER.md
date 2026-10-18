@@ -1,5 +1,10 @@
 # Part 19: Post Scraper specialization
 
+> Update: Post Scraper creation now implements the user-requested Search term and
+> Maximum results form. See [Start run and custom bot fields](./START_RUN.md) for
+> the current configuration, payload, and workflow compatibility requirement.
+> The blocked schema/adapter descriptions below record the original Part 19 state.
+
 The exact backend code `FB-POSTS-SCRAPER` now resolves to its module under
 `src/features/bot-modules/post-scraper`. It uses Part 18's shared composition and
 the existing `GenericRunsPage`, Runs hooks, and services. Other registered codes

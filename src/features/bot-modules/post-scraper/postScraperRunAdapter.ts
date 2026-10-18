@@ -1,10 +1,22 @@
-import { postScraperRunSchema } from "@/features/bot-modules/post-scraper/postScraperRunSchema"
+import { postScraperRunMetadataSchema, type PostScraperRunMetadata } from "@/features/bot-modules/post-scraper/postScraperRunSchema"
 import type { PostScraperRunAdapterState } from "@/features/bot-modules/post-scraper/postScraper.types"
 
-/**
- * Expose the blocker without a serializer or metadata extractor. In particular,
- * do not fall back to an empty object or add schemaVersion to a live payload.
- * The typed adapter contract is ready for the eventual documented schema;
- * the never type records that no production metadata type has been chosen.
- */
-export const postScraperRunAdapter = postScraperRunSchema satisfies PostScraperRunAdapterState<never>
+/** Own the JSON format here, rather than serializing the entire account form. */
+export const postScraperRunAdapter = Object.freeze({
+  status: "ready",
+  adapter: Object.freeze({
+    serializeInfoJson(metadata: PostScraperRunMetadata): string {
+      return JSON.stringify(postScraperRunMetadataSchema.parse(metadata))
+    },
+    extractInfoJson(infoJson: string): PostScraperRunMetadata | undefined {
+      try {
+        const result = postScraperRunMetadataSchema.safeParse(JSON.parse(infoJson))
+        return result.success ? result.data : undefined
+      } catch {
+        // Older run metadata can use another shape or contain malformed JSON.
+        // Leave it unrecognized rather than inventing defaults for old runs.
+        return undefined
+      }
+    },
+  }),
+} satisfies PostScraperRunAdapterState<PostScraperRunMetadata>)

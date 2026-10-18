@@ -53,8 +53,7 @@ export const invalidSerializer: NonNullable<RunsPageConfig<Input, Output>["start
 // @ts-expect-error Parsed account values are numeric, not strings from the UI.
 export const invalidSelection: NonNullable<RunsPageConfig<Input, Output>["startRun"]>["resolveSelection"] = (values) => ({ connectedAccountId: values.account.toUpperCase() })
 
-// This compile-only fixture demonstrates the adapter contract without installing
-// test metadata fields or a versioned envelope in the production module.
+// This compile-only fixture exercises independent module metadata types.
 declare const fixtureAdapter: PostScraperRunAdapter<{ fixtureOnly: string }>
 export const serializedFixture: string = fixtureAdapter.serializeInfoJson({ fixtureOnly: "test" })
 export const extractedFixture: { fixtureOnly: string } | undefined = fixtureAdapter.extractInfoJson("{}")
@@ -62,7 +61,10 @@ export const extractedFixture: { fixtureOnly: string } | undefined = fixtureAdap
 fixtureAdapter.serializeInfoJson({ unknownField: "test" })
 // @ts-expect-error Serializers return JSON text, never a payload object.
 export const invalidPostSerializer: PostScraperRunAdapter<{ fixtureOnly: string }>["serializeInfoJson"] = (metadata) => metadata
-// @ts-expect-error Extracted metadata must match the module's eventual schema.
+// @ts-expect-error Extracted metadata must match the module's schema.
 export const invalidPostExtractor: PostScraperRunAdapter<{ fixtureOnly: string }>["extractInfoJson"] = () => ({ unknownField: "test" })
-// @ts-expect-error The blocked production boundary exposes no working adapter.
+// @ts-expect-error Production metadata requires searchTerm and maxResults.
 postScraperRunAdapter.adapter.serializeInfoJson({})
+export const postMetadataJson: string = postScraperRunAdapter.adapter.serializeInfoJson({ searchTerm: "software", maxResults: 100 })
+// @ts-expect-error Numeric custom fields cannot be serialized as string inputs.
+postScraperRunAdapter.adapter.serializeInfoJson({ searchTerm: "software", maxResults: "100" })
