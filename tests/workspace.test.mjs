@@ -318,6 +318,7 @@ test("real application home and Runs routes use backend module code instead of b
     api.defaults.adapter = async (config) => {
       if (config.url === `/api/v1/bots/${liveBot.id}`) return apiResponse(config, liveBot);
       if (config.url === `/api/v1/connectedaccounts/eligible/${liveBot.id}`) return apiResponse(config, []);
+      if (config.url === `/api/v1/TargetGroups/${liveBot.id}`) return apiResponse(config, []);
       assert.equal(config.url, "/api/v1/scrapes");
       assert.equal(config.params.botId, liveBot.id);
       return apiResponse(config, { items: [], totalItems: 0, totalPages: 0, currentPage: 1 });
@@ -370,6 +371,7 @@ test("post scraper specialization retains scoped history, pagination and filteri
     if (config.url === `/api/v1/connectedaccounts/eligible/${liveBot.id}`) return apiResponse(config, [
       { id: 12, displayName: "Run account", platform: "Facebook", expiredAt: "2026-10-25T14:30:00Z", isActive: true },
     ]);
+    if (config.url === `/api/v1/TargetGroups/${liveBot.id}`) return apiResponse(config, []);
     assert.equal(config.url, "/api/v1/scrapes");
     assert.equal(config.method, "get");
     assert.equal(config.withCredentials, true);

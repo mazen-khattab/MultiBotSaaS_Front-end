@@ -13,6 +13,8 @@ export interface StartRunConfig<TInput extends FieldValues, TOutput extends Fiel
   readonly resolveSelection: (values: TOutput, context: RunCreationContext) => RunSelection | Promise<RunSelection>
   // The generic page injects eligible API results under this module-owned key.
   readonly accountOptionsProvider: string
+  // The scraper composition loads this bot's groups only when requested.
+  readonly targetGroupOptionsProvider?: string
   // Omit only for modules with no metadata. The adapter then sends the
   // documented empty object, never JSON.stringify of arbitrary form values.
   readonly serializeInfoJson?: (values: TOutput, context: RunCreationContext) => string

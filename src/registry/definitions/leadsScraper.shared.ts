@@ -1,5 +1,5 @@
 import { History, ListChecks, Send, Target, UsersRound } from "lucide-react"
-import { createElement, lazy } from "react"
+import { createElement, lazy, type ComponentType } from "react"
 import type { FieldValues } from "react-hook-form"
 
 import type { BotModuleDefinition, BotTabComponentProps, BotTabDefinition } from "@/registry/botRegistry.types"
@@ -45,7 +45,16 @@ export function defineLeadsScraperModule<TInput extends FieldValues = Record<str
   if (config.supportsRuns && runsConfig) {
     // Bind the typed module config before crossing the generic routing boundary.
     // Importing the renderer stays lazy; resolving a module never loads its page.
-    const RunsPage = lazy(async () => {
+    const RunsPage = lazy<ComponentType<BotTabComponentProps>>(async () => {
+      const groupOptionsProvider = runsConfig.startRun?.targetGroupOptionsProvider
+      if (groupOptionsProvider) {
+        const { default: GroupRunsPage } = await import("@/features/runs/pages/GroupRunsPage")
+        return {
+          default: function ScraperGroupRunsPage({ botId }: BotTabComponentProps) {
+            return createElement(GroupRunsPage<TInput, TOutput>, { botId, config: runsConfig, groupOptionsProvider })
+          },
+        }
+      }
       const { default: GenericRunsPage } = await import("@/features/runs/pages/GenericRunsPage")
       return {
         default: function ScraperRunsPage({ botId }: BotTabComponentProps) {

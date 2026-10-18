@@ -166,8 +166,8 @@ test("each registered scraper selects its own creation form", () => {
 })
 
 test("post scraper schema validates its custom fields and serializes only its metadata", () => {
-  assert.equal(postScraperRunSchema.safeParse({ accountId: "12", searchTerm: "software", maxResults: 100 }).success, true)
-  assert.equal(postScraperRunSchema.safeParse({ accountId: "", searchTerm: "software", maxResults: 100 }).success, false)
+  assert.equal(postScraperRunSchema.safeParse({ accountId: "12", targetGroupId: "5", searchTerm: "software", maxResults: 100 }).success, true)
+  assert.equal(postScraperRunSchema.safeParse({ accountId: "", targetGroupId: "5", searchTerm: "software", maxResults: 100 }).success, false)
   assert.equal(postScraperRunAdapter.status, "ready")
   const { serializeInfoJson, extractInfoJson } = postScraperRunAdapter.adapter
   assert.equal(serializeInfoJson({ searchTerm: " software ", maxResults: 100 }), '{"searchTerm":"software","maxResults":100}')

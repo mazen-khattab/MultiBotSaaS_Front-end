@@ -26,6 +26,7 @@ async function openRunForm() {
   await waitFor(() => expect(start).toBeEnabled())
   await view.user.click(start)
   const dialog = within(await screen.findByRole("dialog", { name: "Start Post Scraper" }))
+  await waitFor(() => expect(dialog.getByLabelText("Target group")).toBeEnabled())
   return { ...view, dialog }
 }
 
@@ -63,6 +64,7 @@ test("registered Post Scraper sends custom fields as infoJson and refreshes hist
   expect(writes).not.toHaveBeenCalled()
   expect(dialog.getByLabelText("Maximum results")).toHaveValue(100)
   await user.selectOptions(dialog.getByLabelText("Connected account"), "12")
+  await user.selectOptions(dialog.getByLabelText("Target group"), "5")
   await user.type(dialog.getByLabelText("Search term"), "  software  ")
   await user.clear(dialog.getByLabelText("Maximum results"))
   await user.type(dialog.getByLabelText("Maximum results"), "250")
@@ -70,7 +72,7 @@ test("registered Post Scraper sends custom fields as infoJson and refreshes hist
   expect(await screen.findByText("Run #42 started successfully.")).toBeInTheDocument()
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
   expect(writes).toHaveBeenCalledExactlyOnceWith({
-    botId: 73, connectedAccountId: 12, infoJson: '{"searchTerm":"software","maxResults":250}',
+    botId: 73, connectedAccountId: 12, targetGroupId: 5, infoJson: '{"searchTerm":"software","maxResults":250}',
   })
   expect(await screen.findByRole("button", { name: "Cancel run #42" })).toBeInTheDocument()
   expect(historyReads.mock.calls.length).toBeGreaterThanOrEqual(2)
@@ -91,6 +93,7 @@ test.each([
   }))
   const { user, dialog } = await openRunForm()
   await user.selectOptions(dialog.getByLabelText("Connected account"), "12")
+  await user.selectOptions(dialog.getByLabelText("Target group"), "5")
   await user.type(dialog.getByLabelText("Search term"), "software")
   await user.clear(dialog.getByLabelText("Maximum results"))
   if (limit) await user.type(dialog.getByLabelText("Maximum results"), limit)
@@ -125,10 +128,12 @@ test("a cooldown rejection preserves settings and permits an explicit retry", as
   }))
   const { user, dialog } = await openRunForm()
   await user.selectOptions(dialog.getByLabelText("Connected account"), "12")
+  await user.selectOptions(dialog.getByLabelText("Target group"), "5")
   await user.type(dialog.getByLabelText("Search term"), "software")
   await user.click(dialog.getByRole("button", { name: "Start run" }))
   expect(await screen.findByText(/Bot is on cooldown/)).toBeInTheDocument()
   expect(dialog.getByLabelText("Connected account")).toHaveValue("12")
+  expect(dialog.getByLabelText("Target group")).toHaveValue("5")
   expect(dialog.getByLabelText("Search term")).toHaveValue("software")
   expect(dialog.getByLabelText("Maximum results")).toHaveValue(100)
   expect(writes).toHaveBeenCalledTimes(1)
@@ -149,6 +154,7 @@ test("pending creation prevents duplicate requests and dismissal", async () => {
   }))
   const { user, dialog } = await openRunForm()
   await user.selectOptions(dialog.getByLabelText("Connected account"), "12")
+  await user.selectOptions(dialog.getByLabelText("Target group"), "5")
   await user.type(dialog.getByLabelText("Search term"), "software")
   const form = dialog.getByRole("form", { name: "Start Post Scraper" })
   fireEvent.submit(form)
@@ -183,5 +189,5 @@ test("metadata extraction rejects unknown historical shapes and account IDs", ()
   for (const metadata of ["{}", "bad JSON", "null", "[]", '{"keywords":["software"]}', '{"searchTerm":"software","maxResults":1,"accountId":12}']) {
     expect(extractInfoJson(metadata)).toBeUndefined()
   }
-  expect(postScraperRunSchema.safeParse({ accountId: "2147483648", searchTerm: "software", maxResults: 100 }).success).toBe(false)
+  expect(postScraperRunSchema.safeParse({ accountId: "2147483648", targetGroupId: "5", searchTerm: "software", maxResults: 100 }).success).toBe(false)
 })

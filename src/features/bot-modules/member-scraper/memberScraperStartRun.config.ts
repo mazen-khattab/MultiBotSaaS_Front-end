@@ -1,35 +1,38 @@
 import { z } from "zod"
 
-import { runAccountIdSchema } from "@/features/runs/forms/runAccountIdSchema"
+import { runAccountField, runAccountIdSchema, runAccountOptionsProvider } from "@/features/runs/forms/runAccountIdSchema"
+import { runTargetGroupField, runTargetGroupIdSchema, runTargetGroupOptionsProvider } from "@/features/runs/forms/runTargetGroupField"
 import type { StartRunConfig } from "@/registry/configs/runsConfig.types"
 
 // Add this workflow's custom run fields here. Saved group configJson is separate.
 export const memberScraperRunMetadataSchema = z.strictObject({})
-export const memberScraperRunSchema = memberScraperRunMetadataSchema.extend({ accountId: runAccountIdSchema })
+export const memberScraperRunSchema = memberScraperRunMetadataSchema.extend({
+  accountId: runAccountIdSchema,
+  targetGroupId: runTargetGroupIdSchema,
+})
 export type MemberScraperRunValues = z.infer<typeof memberScraperRunSchema>
 
 export const memberScraperStartRunConfig: StartRunConfig<MemberScraperRunValues> = {
   title: "Start Members Scraper",
-  description: "Choose an account. Member-count settings are managed in Target groups.",
-  accountOptionsProvider: "member-scraper-accounts",
+  description: "Choose an account and target group. Member-count settings are managed in Target groups.",
+  accountOptionsProvider: runAccountOptionsProvider,
+  targetGroupOptionsProvider: runTargetGroupOptionsProvider,
   form: {
     schema: memberScraperRunSchema,
-    defaultValues: { accountId: "" },
+    defaultValues: { accountId: "", targetGroupId: "" },
     fields: [
-      {
-        name: "accountId",
-        label: "Connected account",
-        type: "select",
-        optionsProvider: "member-scraper-accounts",
-        placeholder: "Choose a connected account",
-        required: true,
-      },
+      runAccountField,
+      runTargetGroupField,
     ],
   },
-  resolveSelection: (values) => ({ connectedAccountId: Number(values.accountId) }),
-  serializeInfoJson: ({ accountId, ...metadata }) => {
+  resolveSelection: (values) => ({
+    connectedAccountId: Number(values.accountId),
+    targetGroupId: Number(values.targetGroupId),
+  }),
+  serializeInfoJson: ({ accountId, targetGroupId, ...metadata }) => {
     // Selection belongs in the outer DTO, never in the custom run settings.
     void accountId
+    void targetGroupId
     return JSON.stringify(memberScraperRunMetadataSchema.parse(metadata))
   },
 }

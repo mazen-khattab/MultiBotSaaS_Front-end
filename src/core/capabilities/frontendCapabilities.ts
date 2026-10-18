@@ -59,11 +59,11 @@ export const frontendCapabilities = Object.freeze({
   },
   scraperRunConfiguration: {
     status: "available", audience: "browser", contract: "§3.4, §8.1.1",
-    description: "All three registered scrapers have independent start-run forms. Eligible account selection is required; module-specific custom fields become infoJson.",
+    description: "All three registered scrapers require an eligible account and an active bot-scoped target group. Module-specific custom fields become infoJson; the group ID is sent as targetGroupId.",
   },
   postScraperRunConfiguration: {
     status: "available", audience: "browser", contract: "§3.4, §8.1.1",
-    description: "Post Scraper has an account picker, validated search term and result limit, and a module-owned infoJson serializer.",
+    description: "Post Scraper has account and target-group pickers, a validated search term and result limit, and a module-owned infoJson serializer.",
   },
   runHistory: {
     status: "available", audience: "browser", contract: "§8.1.2",

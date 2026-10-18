@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import type { FieldValues } from "react-hook-form";
 
 import { StartRunModal } from "@/features/runs/components/StartRunModal";
@@ -23,6 +23,9 @@ interface GenericRunsPageProps<TInput extends FieldValues, TOutput extends Field
   // Features supply query-backed select data and readiness, never the renderer.
   readonly options?: DynamicSelectOptions;
   readonly startDisabledReason?: string;
+  // Option readiness blocks the modal's form without hiding its recovery UI.
+  readonly startFormDisabled?: boolean;
+  readonly startFormNotice?: ReactNode;
 }
 
 /** Own a session per bot so late submissions cannot update another workspace. */
@@ -31,6 +34,8 @@ function RunsPageSession<TInput extends FieldValues, TOutput extends FieldValues
   config,
   options,
   startDisabledReason,
+  startFormDisabled = false,
+  startFormNotice,
 }: GenericRunsPageProps<TInput, TOutput>) {
   const [open, setOpen] = useState(false);
   const [createdId, setCreatedId] = useState<number | null>(null);
@@ -223,7 +228,8 @@ function RunsPageSession<TInput extends FieldValues, TOutput extends FieldValues
           options={formOptions}
           eligibleAccounts={eligible.data ?? []}
           open={open}
-          disabled={Boolean(unavailableReason)}
+          disabled={Boolean(unavailableReason) || startFormDisabled}
+          notice={startFormNotice}
           unavailableReason={unavailableReason}
           onRefreshAccounts={() => { void eligible.refetch(); }}
           refreshingAccounts={eligible.isFetching}

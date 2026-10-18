@@ -1,4 +1,4 @@
-import { useRef } from "react"
+import { useRef, type ReactNode } from "react"
 import type { FieldValues } from "react-hook-form"
 import { Link } from "react-router-dom"
 
@@ -23,6 +23,7 @@ interface StartRunModalProps<TInput extends FieldValues, TOutput extends FieldVa
   readonly unavailableReason?: string
   readonly onRefreshAccounts?: () => void
   readonly refreshingAccounts?: boolean
+  readonly notice?: ReactNode
 }
 
 /** Translate contract failures into actionable form errors without a countdown. */
@@ -46,6 +47,7 @@ function getFailureMessage(error: unknown): string {
 export function StartRunModal<TInput extends FieldValues, TOutput extends FieldValues = TInput>({
   botId, config, options, eligibleAccounts, open, onOpenChange, onCreated, disabled = false,
   unavailableReason, onRefreshAccounts, refreshingAccounts = false,
+  notice,
 }: StartRunModalProps<TInput, TOutput>) {
   const mutation = useCreateRun()
   const createdId = useRef<number | undefined>(undefined)
@@ -64,7 +66,7 @@ export function StartRunModal<TInput extends FieldValues, TOutput extends FieldV
     <DynamicModal open={open} onOpenChange={onOpenChange}
       title={config.title ?? "Start run"} description={config.description}
       config={config.form} options={options} onSubmit={submit} disabled={disabled}
-      beforeForm={unavailableReason ? (
+      beforeForm={<>{unavailableReason ? (
         <div className="mb-5 space-y-3 rounded-lg border border-primary/15 bg-primary/5 p-4 text-sm">
           <p role="status">{unavailableReason}</p>
           <p className="text-muted-foreground">Check your connected accounts, then refresh this list. The server decides which accounts can start a run.</p>
@@ -78,7 +80,7 @@ export function StartRunModal<TInput extends FieldValues, TOutput extends FieldV
             </Button> : null}
           </div>
         </div>
-      ) : null}
+      ) : null}{notice}</>}
       submitLabel="Start run" submittingLabel="Starting run…"
       onSuccess={() => { if (createdId.current !== undefined) onCreated?.(createdId.current) }} />
   )

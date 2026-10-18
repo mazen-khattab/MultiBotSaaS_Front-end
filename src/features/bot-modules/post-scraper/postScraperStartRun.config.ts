@@ -1,16 +1,18 @@
 import { postScraperRunAdapter } from "@/features/bot-modules/post-scraper/postScraperRunAdapter"
 import { postScraperRunSchema, type PostScraperRunValues } from "@/features/bot-modules/post-scraper/postScraperRunSchema"
 import type { StartRunConfig } from "@/registry/configs/runsConfig.types"
+import { runTargetGroupField, runTargetGroupOptionsProvider } from "@/features/runs/forms/runTargetGroupField"
 
 /** This bot owns its labels, defaults, validation, and outgoing JSON fields. */
 export const postScraperStartRunConfig: StartRunConfig<PostScraperRunValues> = {
   title: "Start Post Scraper",
-  description: "Choose an account and configure the posts you want to collect.",
+  description: "Choose an account and target group, then configure the posts you want to collect.",
   // GenericRunsPage supplies this list from the existing eligible-accounts API.
   accountOptionsProvider: "post-scraper-accounts",
+  targetGroupOptionsProvider: runTargetGroupOptionsProvider,
   form: {
     schema: postScraperRunSchema,
-    defaultValues: { accountId: "", searchTerm: "", maxResults: 100 },
+    defaultValues: { accountId: "", targetGroupId: "", searchTerm: "", maxResults: 100 },
     fields: [
       {
         name: "accountId",
@@ -20,6 +22,7 @@ export const postScraperStartRunConfig: StartRunConfig<PostScraperRunValues> = {
         placeholder: "Choose a connected account",
         required: true,
       },
+      runTargetGroupField,
       {
         name: "searchTerm",
         label: "Search term",
@@ -39,7 +42,10 @@ export const postScraperStartRunConfig: StartRunConfig<PostScraperRunValues> = {
       },
     ],
   },
-  resolveSelection: (values) => ({ connectedAccountId: Number(values.accountId) }),
+  resolveSelection: (values) => ({
+    connectedAccountId: Number(values.accountId),
+    targetGroupId: Number(values.targetGroupId),
+  }),
   serializeInfoJson: (values) => postScraperRunAdapter.adapter.serializeInfoJson({
     searchTerm: values.searchTerm,
     maxResults: values.maxResults,

@@ -1,8 +1,9 @@
 import { z } from "zod"
 import { runAccountIdSchema } from "@/features/runs/forms/runAccountIdSchema"
+import { runTargetGroupIdSchema } from "@/features/runs/forms/runTargetGroupField"
 
 // These are the custom run fields selected for the Post Scraper form. Keep
-// account selection outside this object so it never leaks into infoJson.
+// account and group selection outside this object so they never leak into infoJson.
 export const postScraperRunMetadataSchema = z.strictObject({
   searchTerm: z.string().trim().min(1, "Enter a search term."),
   maxResults: z.number({ error: "Enter the maximum results." })
@@ -13,6 +14,7 @@ export const postScraperRunMetadataSchema = z.strictObject({
 
 export const postScraperRunSchema = postScraperRunMetadataSchema.extend({
   accountId: runAccountIdSchema,
+  targetGroupId: runTargetGroupIdSchema,
 })
 
 export type PostScraperRunMetadata = z.infer<typeof postScraperRunMetadataSchema>
