@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   ACCOUNT_STATUSES,
+  ACCOUNT_TYPES,
   type CreateConnectedAccountInput,
   type UpdateConnectedAccountInput,
 } from "@/features/connected-accounts/types/connectedAccounts.types";
@@ -14,6 +15,7 @@ export const connectedAccountListSchema = z
     platform: z.string(),
     expiredAt: z.string(),
     isActive: z.boolean(),
+    type: z.enum(ACCOUNT_TYPES),
   })
   .transform(({ expiredAt, ...account }) => ({
     ...account,
@@ -30,6 +32,7 @@ export const connectedAccountDetailSchema = z
     expiredAt: z.string(),
     isActive: z.boolean(),
     status: z.enum(ACCOUNT_STATUSES).optional(),
+    type: z.enum(ACCOUNT_TYPES),
     maskedCookies: z.string(),
     relatedLeadsCount: z.number().int().nonnegative(),
     scrapesCount: z.number().int().nonnegative(),
@@ -42,14 +45,13 @@ export const connectedAccountDetailSchema = z
   }));
 
 /** V2 uses cookiesPayload for both writes; encryption belongs to the backend. */
-export function toCreateConnectedAccountDto(
-  input: CreateConnectedAccountInput,
-) {
+export function toCreateConnectedAccountDto(input: CreateConnectedAccountInput) {
   return {
     botId: input.botId,
     displayName: input.displayName,
     platform: input.platform,
     cookiesPayload: input.cookiesPayload,
+    type: input.type,
   };
 }
 
@@ -62,5 +64,6 @@ export function toUpdateConnectedAccountDto(
     isActive: input.isActive,
     platform: input.platform,
     status: input.status,
+    type: input.type,
   };
 }

@@ -6,8 +6,8 @@ import { EligibleAccountsService } from "@/features/runs/services/EligibleAccoun
 /** Mount only with the account picker; each opening fetches fresh eligibility. */
 export function useMessagingAccounts(botId: number) {
   return useQuery({
-    queryKey: queryKeys.accounts.list({ botId, eligible: true }),
-    queryFn: ({ signal }) => EligibleAccountsService.getEligibleAccountsByBotId(botId, signal),
+    queryKey: queryKeys.accounts.list({ botId, eligible: true, type: "Messaging" }),
+    queryFn: ({ signal }) => EligibleAccountsService.getMessagingEligibleAccounts(botId, signal),
     refetchOnMount: "always",
   })
 }

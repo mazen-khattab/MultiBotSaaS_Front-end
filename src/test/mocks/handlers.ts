@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw/http"
 
-import { accountDetailsDto, accountDto, adminIdentity, apiOrigin, apiPage, apiSuccess,
+import { accountDetailsDto, accountDto, messagingAccountDto, adminIdentity, apiOrigin, apiPage, apiSuccess,
   botDto, groupDetailsDto, groupDto, leadDto, userIdentity } from "@/test/fixtures/api.fixtures"
 
 /** Exact existing endpoints only. Tests override these with server.use(); no
@@ -16,7 +16,8 @@ export const handlers = [
   http.post(`${apiOrigin}/api/v1/admin/auth/logout`, () => HttpResponse.json(apiSuccess(null))),
   http.get(`${apiOrigin}/api/v1/bots`, () => HttpResponse.json(apiSuccess([botDto]))),
   http.get(`${apiOrigin}/api/v1/bots/subscribed`, () => HttpResponse.json(apiSuccess([botDto]))),
-  http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/73`, () => HttpResponse.json(apiSuccess([accountDto]))),
+  http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/scraping/73`, () => HttpResponse.json(apiSuccess([accountDto]))),
+  http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/messaging/73`, () => HttpResponse.json(apiSuccess([messagingAccountDto]))),
   http.get(`${apiOrigin}/api/v1/connectedaccounts/73`, () => HttpResponse.json(apiSuccess([accountDto]))),
   http.get(`${apiOrigin}/api/v1/connectedaccounts/73/12`, () => HttpResponse.json(apiSuccess(accountDetailsDto))),
   http.get(`${apiOrigin}/api/v1/TargetGroups/73`, () => HttpResponse.json(apiSuccess([groupDto]))),

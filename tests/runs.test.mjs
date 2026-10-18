@@ -80,7 +80,7 @@ before(async () => {
   originalAdapter = api.defaults.adapter;
   // Route eligible reads separately so each test's write adapter remains real.
   eligibleInterceptor = api.interceptors.request.use((request) => {
-    if (request.url?.startsWith("/api/v1/connectedaccounts/eligible/"))
+    if (request.url?.startsWith("/api/v1/connectedaccounts/eligible/scraping/"))
       request.adapter = eligibleResponse;
     return request;
   });
@@ -552,7 +552,7 @@ test("an empty eligible response allows opening the form but prevents submission
     return success(request);
   };
   eligibleResponse = async (request) => {
-    assert.equal(request.url, "/api/v1/connectedaccounts/eligible/1");
+    assert.equal(request.url, "/api/v1/connectedaccounts/eligible/scraping/1");
     assert.equal(request.params, undefined);
     assert.equal(request.withCredentials, true);
     return success(request, []);
@@ -636,7 +636,7 @@ test("run service list/detail/cancel use documented endpoints and reject malform
     [
       ["get", "/api/v1/scrapes"],
       ["get", "/api/v1/scrapes/42"],
-      ["post", "/api/v1/scrapes/42/cancel"],
+      ["put", "/api/v1/scrapes/42/cancel"],
     ],
   );
   assert.deepEqual(requests[0].params, filters);
@@ -857,19 +857,19 @@ test("eligible query failure keeps the form accessible and a successful retry su
 test("eligible DTO validation requires expiredAt and never substitutes the old expiry property", async () => {
   eligibleResponse = async (request) => {
     assert.equal(request.method, "get");
-    assert.equal(request.url, "/api/v1/connectedaccounts/eligible/1");
+    assert.equal(request.url, "/api/v1/connectedaccounts/eligible/scraping/1");
     assert.equal(request.params, undefined);
     return success(request, accounts);
   };
   assert.deepEqual(
-    await EligibleAccountsService.getEligibleAccounts(1),
+    await EligibleAccountsService.getScrapingEligibleAccounts(1),
     accounts,
   );
   eligibleResponse = async (request) =>
     success(request, [
       { ...accounts[0], expiredAt: undefined, expAt: accounts[0].expiredAt },
     ]);
-  await assert.rejects(EligibleAccountsService.getEligibleAccounts(1));
+  await assert.rejects(EligibleAccountsService.getScrapingEligibleAccounts(1));
 });
 
 test("typed registry wrappers preserve form transforms and reject unsupported retry/metadata contracts", () => {

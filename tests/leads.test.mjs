@@ -56,7 +56,7 @@ before(async () => {
 })
 
 function defaultResponse(config) {
-  if (config.url.includes("/eligible/")) return success(config, [account])
+  if (config.url.startsWith("/api/v1/connectedaccounts/eligible/messaging/")) return success(config, [account])
   if (config.url.includes("/messaging-preview/")) return success(config, preview)
   if (config.method === "post") return success(config, acknowledgment)
   return success(config, page([lead], config.params.pageNumber))
@@ -322,7 +322,7 @@ test("account modal fetches eligible path, requires selection, sends preview IDs
   await screen.findByText(/Messaging job #85 accepted/)
   assert.equal(screen.queryByRole("dialog"), null)
   assert.ok(screen.getByText(/This confirms submission/))
-  assert.ok(calls.filter((url) => url === "/api/v1/connectedaccounts/eligible/73").length >= 2)
+  assert.ok(calls.filter((url) => url === "/api/v1/connectedaccounts/eligible/messaging/73").length >= 2)
   assert.ok(calls.filter((url) => url === "/api/v1/leads/bot/messaging-preview/73").length >= 3)
   assert.equal(calls.includes("/api/v1/connectedaccounts"), false)
 })
@@ -331,7 +331,7 @@ test("account loading/error/empty states keep Send disabled and offer explicit r
   let fail = true, writes = 0
   api.defaults.adapter = async (config) => {
     if (config.method === "post") writes++
-    if (config.url.includes("/eligible/")) {
+    if (config.url.startsWith("/api/v1/connectedaccounts/eligible/messaging/")) {
       if (fail) throw failure(config, "Eligible accounts unavailable", 404)
       return success(config, [])
     }
@@ -344,7 +344,7 @@ test("account loading/error/empty states keep Send disabled and offer explicit r
   assert.equal(screen.getByRole("button", { name: "Send", exact: true }).disabled, true)
   fail = false
   fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Retry options" }))
-  await screen.findByText("No eligible connected accounts are available for this bot.")
+  await screen.findByText("No eligible messaging accounts are available for this bot.")
   assert.equal(screen.getByRole("button", { name: "Send", exact: true }).disabled, true)
   assert.equal(writes, 0)
 })
@@ -352,11 +352,11 @@ test("account loading/error/empty states keep Send disabled and offer explicit r
 test("each modal opening refetches eligibility instead of accepting a cached account", async () => {
   let finish, reads = 0
   api.defaults.adapter = async (config) => {
-    if (config.url.includes("/eligible/")) { reads++; return new Promise((resolve) => { finish = () => resolve(success(config, [account])) }) }
+    if (config.url.startsWith("/api/v1/connectedaccounts/eligible/messaging/")) { reads++; return new Promise((resolve) => { finish = () => resolve(success(config, [account])) }) }
     return defaultResponse(config)
   }
   const { client } = mount(PreviewPage)
-  client.setQueryData(queryKeys.accounts.list({ botId: 73, eligible: true }), [account])
+  client.setQueryData(queryKeys.accounts.list({ botId: 73, eligible: true, type: "Messaging" }), [account])
   await screen.findByText(previewLead.profileName)
   fireEvent.click(screen.getByRole("button", { name: "Send message" }))
   await screen.findByRole("dialog")
@@ -415,7 +415,7 @@ test("dispatch hook locks duplicates and reconciles lists, previews, and account
   const { client, Wrapper } = wrapper()
   const listKey = queryKeys.leads.list({ botId: 73, pageNumber: 1, pageSize: 10 })
   const previewKey = queryKeys.leads.messagingPreview(73)
-  const accountKey = queryKeys.accounts.list({ botId: 73, eligible: true })
+  const accountKey = queryKeys.accounts.list({ botId: 73, eligible: true, type: "Messaging" })
   for (const key of [listKey, previewKey, accountKey]) client.setQueryData(key, { before: true })
   client.setQueryData(queryKeys.groups.list(), ["unchanged"])
   let finish, writes = 0

@@ -14,9 +14,9 @@ let originalAdapter, originalBaseUrl
 const originalGlobals = new Map()
 const clients = []
 const secret = '[{"name":"c_user","value":"sensitive-test-cookie"}]'
-const account = { id: 12, displayName: "Sales account", platform: "Facebook", expiredAt: "2026-10-25T14:30:00Z", isActive: true }
+const account = { id: 12, displayName: "Sales account", platform: "Facebook", expiredAt: "2026-10-25T14:30:00Z", isActive: true, type: "Scraping" }
 const details = { ...account, status: "CoolingDown", maskedCookies: "c_user=***", relatedLeadsCount: 150, scrapesCount: 14 }
-const updateInput = { displayName: "New", platform: "Facebook", status: "Active", cookiesPayload: secret, isActive: true }
+const updateInput = { displayName: "New", platform: "Facebook", status: "Active", cookiesPayload: secret, isActive: true, type: "Messaging" }
 const success = (config, data) => ({ config, status: 200, statusText: "OK", headers: {}, data: { isSuccess: true, message: "", errorType: 0, data } })
 const failure = (config, status = 400, message = "Invalid input") => new AxiosError("Request failed", AxiosError.ERR_BAD_RESPONSE, config, undefined, {
   config, status, statusText: "Error", headers: {}, data: { isSuccess: false, statusCode: status, message, path: config.url, method: config.method, traceId: "test" },
@@ -102,13 +102,14 @@ test("CRUD preserves bot-scoped reads, exact update status payloads, and credent
     return success(config, config.method === "delete" ? true : { undocumented: secret })
   }
   const list = await service.getAll(73, signal)
-  assert.deepEqual(list, [{ id: 12, displayName: account.displayName, platform: "Facebook", expiresAt: account.expiredAt, isActive: true }])
+  assert.deepEqual(list, [{ id: 12, displayName: account.displayName, platform: "Facebook", expiresAt: account.expiredAt, isActive: true, type: "Scraping" }])
   const detail = await service.getById(73, 12, signal)
   assert.equal(detail.expiresAt, account.expiredAt)
   assert.equal(detail.maskedCookies, "c_user=***")
   assert.equal(detail.status, "Busy")
+  assert.equal(detail.type, "Scraping")
   assert.equal("cookiesPayload" in detail || "botId" in detail || "expAt" in detail, false)
-  await service.create({ botId: 73, displayName: "New", platform: "Facebook", cookiesPayload: secret })
+  await service.create({ botId: 73, displayName: "New", platform: "Facebook", cookiesPayload: secret, type: "Messaging" })
   await service.update(12, { ...updateInput, displayName: "Renamed", isActive: false })
   await service.delete(12)
   assert.deepEqual(calls.map(({ method, url }) => [method, url]), [
@@ -116,7 +117,7 @@ test("CRUD preserves bot-scoped reads, exact update status payloads, and credent
     ["post", "/api/v1/connectedaccounts"], ["put", "/api/v1/connectedaccounts/12"], ["delete", "/api/v1/connectedaccounts/12"],
   ])
   assert.equal(calls[0].params, undefined)
-  assert.deepEqual(calls[2].body, { botId: 73, displayName: "New", platform: "Facebook", cookiesPayload: secret })
+  assert.deepEqual(calls[2].body, { botId: 73, displayName: "New", platform: "Facebook", cookiesPayload: secret, type: "Messaging" })
   assert.deepEqual(calls[3].body, { ...updateInput, displayName: "Renamed", isActive: false })
 })
 
@@ -131,11 +132,20 @@ test("malformed, legacy, mismatched details and unsuccessful deletes are rejecte
   await assert.rejects(service.getAll(73))
 })
 
+test("account list and detail reads reject missing or unsupported account types", async () => {
+  for (const type of [undefined, null, "Other", 0]) {
+    api.defaults.adapter = async (config) => success(config, config.url.endsWith("/12")
+      ? { ...details, type } : [{ ...account, type }])
+    await assert.rejects(service.getAll(73), (error) => error.message.includes("unsupported response"))
+    await assert.rejects(service.getById(73, 12), (error) => error.message.includes("unsupported response"))
+  }
+})
+
 test("cookie writes require HTTPS and never reach an HTTP adapter", async () => {
   let calls = 0
   api.defaults.baseURL = "http://backend.test"
   api.defaults.adapter = async (config) => { calls++; return success(config, true) }
-  await assert.rejects(async () => service.create({ botId: 73, displayName: "New", platform: "Facebook", cookiesPayload: secret }), (error) => error.message.includes("HTTPS"))
+  await assert.rejects(async () => service.create({ botId: 73, displayName: "New", platform: "Facebook", cookiesPayload: secret, type: "Scraping" }), (error) => error.message.includes("HTTPS"))
   await assert.rejects(async () => service.update(12, updateInput), (error) => error.message.includes("HTTPS"))
   assert.equal(calls, 0)
 })
@@ -260,6 +270,49 @@ test("create clears cookies before a pending request, blocks duplicate writes an
   assert.ok(reads >= 2)
 })
 
+for (const type of ["Scraping", "Messaging"]) {
+  test(`create sends the selected ${type} account type`, async () => {
+    let payload
+    api.defaults.adapter = async (config) => {
+      if (config.method === "get") return success(config, [account])
+      assert.equal(config.method, "post")
+      payload = JSON.parse(config.data)
+      return success(config, 99)
+    }
+    mount()
+    await openCreate()
+    assert.equal(screen.getByLabelText("Account type").value, "Scraping")
+    fireEvent.change(screen.getByLabelText("Account type"), { target: { value: type } })
+    fireEvent.click(screen.getByRole("button", { name: "Save account" }))
+    await screen.findByText("Connected account created.")
+    assert.deepEqual(payload, { botId: 73, displayName: "New account", platform: "Facebook", cookiesPayload: secret, type })
+  })
+}
+
+for (const initialType of ["Scraping", "Messaging"]) {
+  test(`edit initializes ${initialType} and saves Messaging without changing unrelated metadata`, async () => {
+    let payload
+    api.defaults.adapter = async (config) => {
+      if (config.method === "get") return success(config, config.url.endsWith("/12") ? { ...details, type: initialType } : [account])
+      assert.equal(config.method, "put")
+      payload = JSON.parse(config.data)
+      return success(config, true)
+    }
+    mount()
+    await screen.findByText("Sales account")
+    fireEvent.click(screen.getByRole("button", { name: "Edit Sales account" }))
+    await screen.findByRole("form", { name: "Edit connected account" })
+    assert.equal(screen.getByLabelText("Account type").value, initialType)
+    if (initialType !== "Messaging") {
+      fireEvent.change(screen.getByLabelText("Account type"), { target: { value: "Messaging" } })
+    }
+    fireEvent.change(screen.getByLabelText("Replacement cookie payload"), { target: { value: secret } })
+    fireEvent.click(screen.getByRole("button", { name: "Save account" }))
+    await screen.findByText("Connected account updated.")
+    assert.deepEqual(payload, { displayName: account.displayName, platform: "Facebook", status: "CoolingDown", cookiesPayload: secret, isActive: true, type: "Messaging" })
+  })
+}
+
 test("failed create clears input, hides backend echoes and requires re-entry", async () => {
   let posts = 0
   api.defaults.adapter = async (config) => {
@@ -281,10 +334,10 @@ test("failed create clears input, hides backend echoes and requires re-entry", a
   assert.equal(screen.getByLabelText("Cookie payload").value, "")
 })
 
-test("edit initializes current status and saves the selected status, platform, cookies, and activation", async () => {
+test("edit initializes current status and type and saves the selected metadata", async () => {
   let payload
   api.defaults.adapter = async (config) => {
-    if (config.method === "get") return success(config, config.url.endsWith("/12") ? { ...details, displayName: "Fresh detail name", isActive: false } : [account])
+    if (config.method === "get") return success(config, config.url.endsWith("/12") ? { ...details, displayName: "Fresh detail name", isActive: false, type: "Messaging" } : [account])
     assert.equal(config.method, "put")
     payload = JSON.parse(config.data)
     return success(config, true)
@@ -296,14 +349,17 @@ test("edit initializes current status and saves the selected status, platform, c
   assert.equal(screen.getByLabelText("Account name").value, "Fresh detail name")
   assert.equal(screen.getByLabelText("Enabled").checked, false)
   assert.equal(screen.getByLabelText("Account status").value, "CoolingDown")
+  assert.equal(screen.getByLabelText("Account type").value, "Messaging")
+  assert.deepEqual(Array.from(screen.getByLabelText("Account type").options).slice(1).map((option) => option.value), ["Scraping", "Messaging"])
   assert.deepEqual(Array.from(screen.getByLabelText("Account status").options).slice(1).map((option) => option.value), ["Active", "Busy", "CoolingDown", "AccountFlagged", "Banned"])
   fireEvent.change(screen.getByLabelText("Account status"), { target: { value: "Active" } })
+  fireEvent.change(screen.getByLabelText("Account type"), { target: { value: "Scraping" } })
   fireEvent.change(screen.getByLabelText("Platform"), { target: { value: "Updated platform" } })
   assert.equal(screen.getByLabelText("Replacement cookie payload").value, "")
   fireEvent.change(screen.getByLabelText("Replacement cookie payload"), { target: { value: secret } })
   fireEvent.click(screen.getByRole("button", { name: "Save account" }))
   await screen.findByText("Connected account updated.")
-  assert.deepEqual(payload, { displayName: "Fresh detail name", platform: "Updated platform", status: "Active", cookiesPayload: secret, isActive: false })
+  assert.deepEqual(payload, { displayName: "Fresh detail name", platform: "Updated platform", status: "Active", cookiesPayload: secret, isActive: false, type: "Scraping" })
 })
 
 test("edit waits for a fresh detail response before populating a previously cached account", async () => {

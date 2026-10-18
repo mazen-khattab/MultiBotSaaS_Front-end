@@ -6,8 +6,8 @@ import { EligibleAccountsService } from "@/features/runs/services/EligibleAccoun
 /** No client eligibility filtering; an empty successful response disables start. */
 export function useEligibleAccounts(botId: number, enabled = true) {
   return useQuery({
-    queryKey: queryKeys.accounts.list({ botId, eligible: true }),
-    queryFn: ({ signal }) => EligibleAccountsService.getEligibleAccounts(botId, signal),
+    queryKey: queryKeys.accounts.list({ botId, eligible: true, type: "Scraping" }),
+    queryFn: ({ signal }) => EligibleAccountsService.getScrapingEligibleAccounts(botId, signal),
     enabled: enabled && Number.isInteger(botId) && botId > 0,
   })
 }

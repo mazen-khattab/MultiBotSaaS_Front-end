@@ -564,7 +564,7 @@ test("mounted app bridge refetches real feature services with their original bot
     if (config.url === "/api/v1/leads/leads/74") return success(config, { items: completed ? [] : [lead], totalItems: completed ? 0 : 21, totalPages: completed ? 0 : 3, currentPage: 3 })
     if (config.url === "/api/v1/leads/bot/messaging-preview/74") return success(config, { dailyMessageLimit: 5, messagesSent: completed ? 5 : 0,
       allowedToProcessCount: completed ? 0 : 5, leads: [] })
-    if (config.url === "/api/v1/connectedaccounts/eligible/73") return success(config, [])
+    if (config.url === "/api/v1/connectedaccounts/eligible/scraping/73") return success(config, [])
     throw new Error(`Unexpected event-driven request: ${config.url}`)
   }
   function Reads() {

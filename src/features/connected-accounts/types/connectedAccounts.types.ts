@@ -2,12 +2,16 @@
 export const ACCOUNT_STATUSES = ["Active", "Busy", "CoolingDown", "AccountFlagged", "Banned"] as const
 export type AccountStatus = (typeof ACCOUNT_STATUSES)[number]
 
+export const ACCOUNT_TYPES = ["Scraping", "Messaging"] as const
+export type AccountTypes = (typeof ACCOUNT_TYPES)[number]
+
 /** Activation and execution status are separate backend fields. */
 export interface ConnectedAccount {
   readonly id: number
   readonly displayName: string
   readonly platform: string
   readonly expiresAt: string
+  readonly type: AccountTypes
   readonly isActive: boolean
 }
 
@@ -25,6 +29,7 @@ export interface CreateConnectedAccountInput {
   readonly displayName: string
   readonly platform: string
   readonly cookiesPayload: string
+  readonly type: AccountTypes
 }
 
 export interface UpdateConnectedAccountInput {
@@ -33,4 +38,5 @@ export interface UpdateConnectedAccountInput {
   readonly isActive: boolean
   readonly platform: string
   readonly status: AccountStatus
+  readonly type: AccountTypes
 }
