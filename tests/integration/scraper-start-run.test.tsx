@@ -38,7 +38,7 @@ beforeEach(() => {
 test.each(bots)("$code opens its own form and sends the current bot ID and only its metadata", async (bot) => {
   const writes = vi.fn()
   server.use(
-    http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/${bot.id}`, () => HttpResponse.json(apiSuccess([accountDto]))),
+    http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/scraping/${bot.id}`, () => HttpResponse.json(apiSuccess([accountDto]))),
     http.post(`${apiOrigin}/api/v1/scrapes`, async ({ request }) => {
       writes(await request.json())
       return HttpResponse.json(apiSuccess(42))
@@ -70,7 +70,7 @@ test.each(bots)("$code opens without eligible accounts and recovers through Refr
   let ready = false
   const writes = vi.fn()
   server.use(
-    http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/${bot.id}`, () => HttpResponse.json(apiSuccess(ready ? [accountDto] : []))),
+    http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/scraping/${bot.id}`, () => HttpResponse.json(apiSuccess(ready ? [accountDto] : []))),
     http.post(`${apiOrigin}/api/v1/scrapes`, async ({ request }) => {
       writes(await request.json())
       return HttpResponse.json(apiSuccess(42))
@@ -97,7 +97,7 @@ test.each(bots)("$code opens without eligible accounts and recovers through Refr
 test("a configured modal opens while accounts load and stays blocked until they arrive", async () => {
   let finish!: () => void
   const pending = new Promise<void>((resolve) => { finish = resolve })
-  server.use(http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/73`, async () => {
+  server.use(http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/scraping/73`, async () => {
     await pending
     return HttpResponse.json(apiSuccess([accountDto]))
   }))
@@ -116,8 +116,8 @@ test("a configured modal opens while accounts load and stays blocked until they 
 
 test("an account read error can be retried inside the modal", async () => {
   let failing = true
-  server.use(http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/75`, () => failing
-    ? HttpResponse.json(apiFailure(404, "Bot subscription not found.", "/api/v1/connectedaccounts/eligible/75", "GET"), { status: 404 })
+  server.use(http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/scraping/75`, () => failing
+    ? HttpResponse.json(apiFailure(404, "Bot subscription not found.", "/api/v1/connectedaccounts/eligible/scraping/75", "GET"), { status: 404 })
     : HttpResponse.json(apiSuccess([accountDto]))))
   const { user } = renderWithProviders(<Runs {...bots[2]} />)
   await user.click(await screen.findByRole("button", { name: "Start run" }))
@@ -133,7 +133,7 @@ test("an account read error can be retried inside the modal", async () => {
 test.each(bots)("$code requires a group before creating a run", async (bot) => {
   const writes = vi.fn()
   server.use(
-    http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/${bot.id}`, () => HttpResponse.json(apiSuccess([accountDto]))),
+    http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/scraping/${bot.id}`, () => HttpResponse.json(apiSuccess([accountDto]))),
     http.post(`${apiOrigin}/api/v1/scrapes`, () => { writes(); return HttpResponse.json(apiSuccess(42)) }),
   )
   const { user } = renderWithProviders(<Runs {...bot} />)
@@ -239,7 +239,7 @@ test("a selected group that becomes inactive cannot be submitted", async () => {
 })
 
 test("changing bots closes the old form and never shows another bot's group options", async () => {
-  server.use(http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/75`, () => HttpResponse.json(apiSuccess([accountDto]))))
+  server.use(http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/scraping/75`, () => HttpResponse.json(apiSuccess([accountDto]))))
   const { user, rerender } = renderWithProviders(<Runs {...bots[0]} />)
   await user.click(await screen.findByRole("button", { name: "Start run" }))
   const firstDialog = within(await screen.findByRole("dialog", { name: bots[0].title }))

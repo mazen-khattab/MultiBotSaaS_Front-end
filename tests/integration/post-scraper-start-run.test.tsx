@@ -46,7 +46,7 @@ test("registered Post Scraper sends custom fields as infoJson and refreshes hist
         infoJson: sentInfoJson, startedAt: "2026-10-16T12:00:00Z", endedAt: null, status: "Running",
       }] : [])))
     }),
-    http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/73`, () => {
+    http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/scraping/73`, () => {
       accountReads()
       return HttpResponse.json(apiSuccess(created ? [] : [accountDto]))
     }),
@@ -173,7 +173,7 @@ test("pending creation prevents duplicate requests and dismissal", async () => {
 })
 
 test("no eligible accounts leaves the form accessible with guidance and blocks submission", async () => {
-  server.use(http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/73`, () => HttpResponse.json(apiSuccess([]))))
+  server.use(http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/scraping/73`, () => HttpResponse.json(apiSuccess([]))))
   const { user } = renderWithProviders(<PostRuns />)
   expect(await screen.findByText("No eligible connected accounts are available for this bot.")).toBeInTheDocument()
   await user.click(screen.getByRole("button", { name: "Start run" }))

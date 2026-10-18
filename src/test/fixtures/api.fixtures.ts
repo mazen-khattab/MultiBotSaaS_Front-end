@@ -8,7 +8,9 @@ export const userIdentity: AuthUser = { userId: "3fa85f64-5717-4562-b3fc-2c963f6
 export const adminIdentity: AuthUser = { userId: "118d92fb-a1db-42f6-a71d-1c7be8ea8f01", email: "admin@example.test", name: "Test Admin", role: "Admin" }
 export const botDto = { id: 73, name: "Test bot", description: null, currentPrice: 10, uiModuleCode: "FB-MEMBERS-SCRAPER",
   cooldownMinutes: 180, isActive: true, status: "Active", isSubscribed: true, subscribedAt: "2026-10-15T12:00:00Z" }
-export const accountDto = { id: 12, displayName: "Test account", platform: "Facebook", expiredAt: "2026-10-25T14:30:00Z", isActive: true }
+export const eligibleAccountDto = { id: 12, displayName: "Test account", platform: "Facebook", expiredAt: "2026-10-25T14:30:00Z", isActive: true }
+export const accountDto = { ...eligibleAccountDto, type: "Scraping" as const }
+export const messagingAccountDto = { ...eligibleAccountDto, id: 13, displayName: "Messaging account", type: "Messaging" as const }
 export const accountDetailsDto = { ...accountDto, status: "Active", maskedCookies: "c_user=***", relatedLeadsCount: 150, scrapesCount: 14 }
 export const groupDto = { id: 5, groupName: "Test group", groupUrl: "https://example.test/groups/5", isActive: true }
 export const groupDetailsDto = { ...groupDto, configJson: "{}", relatedLeadsCount: 45, scrapesCount: 3 }

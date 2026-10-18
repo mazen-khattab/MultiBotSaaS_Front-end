@@ -4,19 +4,21 @@ import { expect, test } from "vitest"
 import { ConnectedAccountsService } from "@/features/connected-accounts/services/ConnectedAccountsService"
 import { GroupsService } from "@/features/groups/services/GroupsService"
 import { EligibleAccountsService } from "@/features/runs/services/EligibleAccountsService"
-import { accountDetailsDto, accountDto, apiOrigin, apiSuccess, groupDetailsDto, groupDto, userIdentity } from "@/test/fixtures/api.fixtures"
+import { accountDetailsDto, accountDto, eligibleAccountDto, messagingAccountDto, apiOrigin, apiSuccess, groupDetailsDto, groupDto, userIdentity } from "@/test/fixtures/api.fixtures"
 import { server } from "@/test/mocks/server"
 
-test("run and messaging eligibility reads share the existing bot-path endpoint", async () => {
-  expect(await EligibleAccountsService.getEligibleAccounts(73)).toEqual([accountDto])
-  expect(await EligibleAccountsService.getEligibleAccountsByBotId(73)).toEqual([accountDto])
+test("run and messaging eligibility reads use their separate bot-path endpoints", async () => {
+  expect(await EligibleAccountsService.getScrapingEligibleAccounts(73)).toEqual([eligibleAccountDto])
+  expect(await EligibleAccountsService.getMessagingEligibleAccounts(73)).toEqual([
+    { ...eligibleAccountDto, id: messagingAccountDto.id, displayName: messagingAccountDto.displayName },
+  ])
 })
 
 test("bot-scoped account reads transform expiredAt and scrapesCount explicitly", async () => {
   const [account] = await ConnectedAccountsService.getAll(73)
-  expect(account).toEqual({ id: 12, displayName: accountDto.displayName, platform: "Facebook", expiresAt: accountDto.expiredAt, isActive: true })
+  expect(account).toEqual({ id: 12, displayName: accountDto.displayName, platform: "Facebook", expiresAt: accountDto.expiredAt, isActive: true, type: "Scraping" })
   const detail = await ConnectedAccountsService.getById(73, 12)
-  expect(detail).toMatchObject({ expiresAt: accountDetailsDto.expiredAt, runsCount: accountDetailsDto.scrapesCount, status: "Active" })
+  expect(detail).toMatchObject({ expiresAt: accountDetailsDto.expiredAt, runsCount: accountDetailsDto.scrapesCount, status: "Active", type: "Scraping" })
   expect(detail).not.toHaveProperty("expiredAt")
   expect(detail).not.toHaveProperty("scrapesCount")
   expect(detail).not.toHaveProperty("expAt")

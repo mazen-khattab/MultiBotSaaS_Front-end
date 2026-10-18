@@ -6,7 +6,11 @@ import { z } from "zod";
 import { normalizeApiError } from "@/core/api/apiError";
 import { useConnectedAccountMutations } from "@/features/connected-accounts/hooks/useConnectedAccountMutations";
 import { canSendAccountCookies } from "@/features/connected-accounts/services/ConnectedAccountsService";
-import { ACCOUNT_STATUSES, type ConnectedAccountDetails } from "@/features/connected-accounts/types/connectedAccounts.types";
+import {
+  ACCOUNT_STATUSES,
+  ACCOUNT_TYPES,
+  type ConnectedAccountDetails,
+} from "@/features/connected-accounts/types/connectedAccounts.types";
 import { Button } from "@/shared/ui/button";
 
 const metadataSchema = z.object({
@@ -15,6 +19,7 @@ const metadataSchema = z.object({
   isActive: z.boolean(),
   // Creation does not accept status. Editing requires an explicit selection.
   status: z.union([z.enum(ACCOUNT_STATUSES), z.literal("")]).optional(),
+  type: z.enum(ACCOUNT_TYPES)
 });
 type AccountMetadata = z.infer<typeof metadataSchema>;
 
@@ -44,16 +49,23 @@ export function AccountForm({
     handleSubmit,
     formState: { errors },
   } = useForm<AccountMetadata>({
-    resolver: zodResolver(metadataSchema.superRefine((values, context) => {
-      if (account && !values.status) {
-        context.addIssue({ code: "custom", path: ["status"], message: "Select an account status." });
-      }
-    })),
+    resolver: zodResolver(
+      metadataSchema.superRefine((values, context) => {
+        if (account && !values.status) {
+          context.addIssue({
+            code: "custom",
+            path: ["status"],
+            message: "Select an account status.",
+          });
+        }
+      }),
+    ),
     defaultValues: {
       displayName: account?.displayName ?? "",
       platform: account?.platform ?? "",
       isActive: account?.isActive ?? true,
       status: account?.status ?? "",
+      type: account?.type ?? "Scraping",
     },
   });
 
@@ -84,6 +96,7 @@ export function AccountForm({
               cookiesPayload,
               platform: metadata.platform,
               status: metadata.status,
+              type: metadata.type
             });
           } else {
             await mutation.create({
@@ -91,6 +104,7 @@ export function AccountForm({
               displayName: metadata.displayName,
               platform: metadata.platform,
               cookiesPayload,
+              type: metadata.type
             });
           }
           onSaved();
@@ -165,8 +179,38 @@ export function AccountForm({
             </p>
           ) : null}
           <p className="text-sm text-muted-foreground">
-           {account ? "" : `New accounts are assigned to bot ${botId}.`}
+            {account ? "" : `New accounts are assigned to bot ${botId}.`}
           </p>
+        </div>
+        <div className="space-y-1">
+          <label htmlFor={`${id}-type`} className="text-sm font-medium">
+            Account type
+          </label>
+          <select
+            id={`${id}-type`}
+            {...register("type")}
+            aria-invalid={Boolean(errors.type)}
+            aria-describedby={errors.type ? `${id}-type-error` : undefined}
+            className="w-full rounded-lg border p-2"
+          >
+            <option value="" disabled>
+              Select a Type
+            </option>
+            {ACCOUNT_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+          {errors.type ? (
+            <p
+              id={`${id}-type-error`}
+              role="alert"
+              className="text-sm text-red-700"
+            >
+              {errors.type.message}
+            </p>
+          ) : null}
         </div>
         {account ? (
           <>
@@ -178,20 +222,35 @@ export function AccountForm({
                 id={`${id}-status`}
                 {...register("status")}
                 aria-invalid={Boolean(errors.status)}
-                aria-describedby={errors.status ? `${id}-status-error` : `${id}-status-help`}
+                aria-describedby={
+                  errors.status ? `${id}-status-error` : `${id}-status-help`
+                }
                 className="w-full rounded-lg border p-2"
               >
-                <option value="" disabled>Select a status</option>
+                <option value="" disabled>
+                  Select a status
+                </option>
                 {ACCOUNT_STATUSES.map((status) => (
-                  <option key={status} value={status}>{status}</option>
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
                 ))}
               </select>
-              <p id={`${id}-status-help`} className="text-sm text-muted-foreground">
-                {account.status === undefined ? "The server did not return the current status. " : ""}
+              <p
+                id={`${id}-status-help`}
+                className="text-sm text-muted-foreground"
+              >
+                {account.status === undefined
+                  ? "The server did not return the current status. "
+                  : ""}
                 The server validates status changes when you save.
               </p>
               {errors.status ? (
-                <p id={`${id}-status-error`} role="alert" className="text-sm text-red-700">
+                <p
+                  id={`${id}-status-error`}
+                  role="alert"
+                  className="text-sm text-red-700"
+                >
                   {errors.status.message}
                 </p>
               ) : null}
