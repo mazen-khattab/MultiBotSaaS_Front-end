@@ -1,11 +1,13 @@
-import { useRef, type ReactNode } from "react"
+import { useQueryClient } from "@tanstack/react-query"
+import { useEffect, useRef, type ReactNode } from "react"
 import type { FieldValues } from "react-hook-form"
 import { Link } from "react-router-dom"
 
 import { normalizeApiError } from "@/core/api/apiError"
+import { queryKeys } from "@/core/query/queryKeys"
 import { createRunAdapter } from "@/features/runs/adapters/createRunAdapter"
 import { useCreateRun } from "@/features/runs/hooks/useCreateRun"
-import type { ConnectedAccountDto } from "@/features/runs/services/EligibleAccountsService"
+import { EligibleAccountsService, type ConnectedAccountDto } from "@/features/runs/services/EligibleAccountsService"
 import type { StartRunConfig } from "@/registry/configs/runsConfig.types"
 import { DynamicModal } from "@/shared/components/dynamic-form/DynamicModal"
 import type { DynamicFormSubmitResult, DynamicSelectOptions } from "@/shared/components/dynamic-form/dynamicForm.types"
@@ -49,12 +51,41 @@ export function StartRunModal<TInput extends FieldValues, TOutput extends FieldV
   unavailableReason, onRefreshAccounts, refreshingAccounts = false,
   notice,
 }: StartRunModalProps<TInput, TOutput>) {
+  const client = useQueryClient()
   const mutation = useCreateRun()
   const createdId = useRef<number | undefined>(undefined)
+  const active = useRef(true)
+  const accountKey = queryKeys.accounts.list({ botId: Number(botId), eligible: true, type: "Scraping" })
+  useEffect(() => {
+    active.current = true
+    return () => { active.current = false }
+  }, [])
+
+  function readReadyAccounts() {
+    const state = client.getQueryState(accountKey)
+    const accounts = client.getQueryData<readonly ConnectedAccountDto[]>(accountKey)
+    if (!active.current || !accounts || state?.status !== "success" ||
+      state.fetchStatus !== "idle" || state.isInvalidated) {
+      throw { message: "Wait for eligible accounts to finish refreshing, then try again. Refresh the account options if they could not be loaded." }
+    }
+    return accounts
+  }
+
   async function submit(values: TOutput): Promise<DynamicFormSubmitResult> {
     createdId.current = undefined
     try {
       const dto = await createRunAdapter(botId, values, config, eligibleAccounts)
+      // Selection preparation may await module code. Refuse an obsolete query
+      // before fetching, then check the current server list immediately before POST.
+      readReadyAccounts()
+      await client.fetchQuery({
+        queryKey: accountKey,
+        queryFn: ({ signal }) => EligibleAccountsService.getScrapingEligibleAccounts(Number(botId), signal),
+        staleTime: 0,
+      })
+      if (!readReadyAccounts().some((account) => account.id === dto.connectedAccountId)) {
+        throw { message: "This account is no longer eligible. Choose an eligible connected account from the refreshed options." }
+      }
       createdId.current = await mutation.mutateAsync(dto)
       return { status: "success" }
     } catch (error: unknown) {

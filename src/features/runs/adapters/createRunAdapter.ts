@@ -24,8 +24,8 @@ export async function createRunAdapter<TInput extends FieldValues, TOutput exten
   if (!isContractId(selection.connectedAccountId)) {
     throw { message: "Choose an available connected account." }
   }
-  // Membership in the eligible response proves the server checked Active status,
-  // ownership, bot assignment, and cookie expiry. Do not repeat those rules here.
+  // This checks membership in the supplied snapshot. The modal refreshes and
+  // rechecks eligibility before POST; the backend validates the account again.
   if (!eligibleAccounts.some((account) => account.id === selection.connectedAccountId)) {
     throw { message: "Choose an eligible connected account. Refresh the account options if your selection is no longer available." }
   }
