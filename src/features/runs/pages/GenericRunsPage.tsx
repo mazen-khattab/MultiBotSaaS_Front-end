@@ -52,11 +52,12 @@ function RunsPageSession<TInput extends FieldValues, TOutput extends FieldValues
     config.capabilities.canListRuns,
   );
   const eligible = useEligibleAccounts(Number(botId), canStart);
+  const accountReadPending = eligible.isPending || eligible.isFetching;
   const configurationUnavailableReason = startDisabledReason ?? config.startUnavailableReason;
   const unavailableReason =
     configurationUnavailableReason ??
     (canStart
-      ? eligible.isPending
+      ? accountReadPending
         ? "Loading eligible connected accounts…"
         : eligible.isError
           ? "Eligible connected accounts could not be loaded."
@@ -73,7 +74,7 @@ function RunsPageSession<TInput extends FieldValues, TOutput extends FieldValues
           value: String(account.id),
           label: account.displayName,
         })),
-        isLoading: eligible.isPending,
+        isLoading: accountReadPending,
         error: eligible.isError
           ? "Unable to load eligible accounts."
           : undefined,
@@ -129,7 +130,12 @@ function RunsPageSession<TInput extends FieldValues, TOutput extends FieldValues
           // Account readiness blocks submission inside the modal, so users can
           // still open their form and see how to resolve account problems.
           disabled={!canStart || Boolean(configurationUnavailableReason)}
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            setOpen(true);
+            // A page can remain open after cookies expire. Always refresh the
+            // server's eligibility list before allowing this modal to submit.
+            void eligible.refetch();
+          }}
         >
           Start run
         </Button>

@@ -227,7 +227,9 @@ async function openModal() {
     ),
   );
   fireEvent.click(screen.getByRole("button", { name: "Start run" }));
-  return screen.findByRole("dialog", { name: "Start run" });
+  const dialog = await screen.findByRole("dialog", { name: "Start run" });
+  await waitFor(() => assert.equal(screen.queryAllByText("Loading eligible connected accounts…").length, 0));
+  return dialog;
 }
 function submit() {
   fireEvent.submit(screen.getByRole("form", { name: "Start run" }));
@@ -412,7 +414,7 @@ test("starting a run validates and serializes the form, closes the modal, and sh
     target: { value: "  Parsed term  " },
   });
   submit();
-  await waitFor(() => assert.ok(screen.getByRole("status")));
+  await screen.findByText("Run #42 started successfully.");
   assert.equal(screen.queryByRole("dialog"), null);
   assert.match(
     screen.getByRole("status").textContent,
@@ -543,6 +545,27 @@ test("a late creation response cannot acknowledge a run in another bot workspace
   });
   assert.equal(screen.queryByRole("status"), null);
   assert.equal(screen.queryByRole("dialog"), null);
+});
+
+test("switching bots during selection preparation prevents an obsolete eligibility check and run POST", async () => {
+  let finish, preparing = false, writes = 0, eligibilityReads = 0;
+  const pending = new Promise((resolve) => { finish = resolve; });
+  eligibleResponse = async (request) => { eligibilityReads++; return success(request, accounts); };
+  api.defaults.adapter = async (request) => { writes++; return success(request); };
+  const view = mount({ config: { ...config, startRun: {
+    ...config.startRun,
+    resolveSelection: async () => { preparing = true; await pending; return { connectedAccountId: 5 }; },
+  } } });
+  await openModal();
+  submit();
+  await waitFor(() => assert.equal(preparing, true));
+  view.update({ botId: "2" });
+  await waitFor(() => assert.equal(eligibilityReads, 3));
+  await act(async () => { finish(); await pending; });
+  assert.equal(eligibilityReads, 3);
+  assert.equal(writes, 0);
+  assert.equal(screen.queryByRole("dialog"), null);
+  assert.equal(screen.queryByRole("status"), null);
 });
 
 test("an empty eligible response allows opening the form but prevents submission", async () => {
@@ -832,7 +855,7 @@ test("create invalidates history and eligible accounts so the backend's busy acc
       "No eligible connected accounts are available for this bot.",
     ),
   );
-  assert.equal(eligibilityReads, 2);
+  assert.equal(eligibilityReads, 4);
 });
 
 test("eligible query failure keeps the form accessible and a successful retry supplies account options", async () => {
