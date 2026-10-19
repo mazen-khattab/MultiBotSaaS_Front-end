@@ -5,7 +5,7 @@ All three registered scrapers now have independent start-run forms:
 | Bot | Current fields | Custom `infoJson` |
 | --- | --- | --- |
 | `FB-MEMBERS-SCRAPER` | Connected account, Target group | `{}` |
-| `FB-POSTS-SCRAPER` | Connected account, Target group, Search term, Maximum results | `{"searchTerm":"software","maxResults":100}` |
+| `FB-POSTS-SCRAPER` | Connected account, Target group, Search term, Posts count, Post description, Analyze comment prompt, Analyze profile posts prompt | `{"searchTerm":"software","postsCount":100,"postDescription":"","analyzieCommentPrompt":"","analyzieProfilePrompt":""}` |
 | `FB-MEMBERS-MESSAGES-SCRAPER` | Connected account, Target group | `{}` |
 
 The member bots select an account and group without extra run metadata. Their existing `groupMembersCount` and
@@ -25,7 +25,10 @@ They are not silently copied into a run's `infoJson`.
    be selected. If there are no active groups, use **Manage target groups**, then
    **Refresh groups**. Loading or failed group reads block submission with a
    recovery message. The page button still opens the modal.
-5. For Post Scraper, enter a search term and choose a maximum from 1 to 1000.
+5. For Post Scraper, enter a search term and a posts count from 1 to 1000. The
+   post description, comment analysis prompt, and profile posts analysis prompt
+   are optional textareas. Empty values are sent as empty strings; multiline
+   content is preserved.
 6. Submit. The dialog closes after the API returns a valid run ID. History and
    account eligibility refresh. A failed request keeps the form open and preserves
    the values so the user can correct them or explicitly retry.
@@ -37,7 +40,7 @@ The browser sends a cookie-authenticated `POST /api/v1/scrapes`:
   "botId": 73,
   "connectedAccountId": 12,
   "targetGroupId": 5,
-  "infoJson": "{\"searchTerm\":\"software\",\"maxResults\":100}"
+  "infoJson": "{\"searchTerm\":\"software\",\"postsCount\":100,\"postDescription\":\"\",\"analyzieCommentPrompt\":\"\",\"analyzieProfilePrompt\":\"\"}"
 }
 ```
 
@@ -50,7 +53,9 @@ Post Scraper. Member bots currently send `"infoJson": "{}"`, using the documente
 no-metadata path. All three use the current workspace ID and eligible account ID.
 
 These custom field names implement the requested frontend example. The backend's
-n8n workflow must consume `searchTerm` and `maxResults` from the run's info payload.
+n8n workflow must consume `searchTerm`, `postsCount`, `postDescription`,
+`analyzieCommentPrompt`, and `analyzieProfilePrompt` from the run's info payload.
+The `analyzie` spelling is intentional to match the requested JSON keys.
 The generic endpoint already exists; successful real workflow execution has not
 been verified by the frontend's mocked integration tests. Group settings such as
 `postsPerRun` and `includeComments` remain separate saved `configJson` fields.

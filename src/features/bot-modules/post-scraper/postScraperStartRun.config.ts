@@ -12,7 +12,10 @@ export const postScraperStartRunConfig: StartRunConfig<PostScraperRunValues> = {
   targetGroupOptionsProvider: runTargetGroupOptionsProvider,
   form: {
     schema: postScraperRunSchema,
-    defaultValues: { accountId: "", targetGroupId: "", searchTerm: "", maxResults: 100 },
+    defaultValues: {
+      accountId: "", targetGroupId: "", searchTerm: "", postsCount: 100,
+      postDescription: "", analyzieCommentPrompt: "", analyzieProfilePrompt: "",
+    },
     fields: [
       {
         name: "accountId",
@@ -31,14 +34,29 @@ export const postScraperStartRunConfig: StartRunConfig<PostScraperRunValues> = {
         required: true,
       },
       {
-        name: "maxResults",
-        label: "Maximum results",
+        name: "postsCount",
+        label: "Posts count",
         type: "number",
-        description: "Collect between 1 and 1000 results in this run.",
+        description: "Collect between 1 and 1000 posts in this run.",
         min: 1,
         max: 1000,
         step: 1,
         required: true,
+      },
+      {
+        name: "postDescription",
+        label: "Post description",
+        type: "textarea",
+      },
+      {
+        name: "analyzieCommentPrompt",
+        label: "Analyze comment prompt",
+        type: "textarea",
+      },
+      {
+        name: "analyzieProfilePrompt",
+        label: "Analyze profile posts prompt",
+        type: "textarea",
       },
     ],
   },
@@ -48,6 +66,9 @@ export const postScraperStartRunConfig: StartRunConfig<PostScraperRunValues> = {
   }),
   serializeInfoJson: (values) => postScraperRunAdapter.adapter.serializeInfoJson({
     searchTerm: values.searchTerm,
-    maxResults: values.maxResults,
+    postsCount: values.postsCount,
+    postDescription: values.postDescription,
+    analyzieCommentPrompt: values.analyzieCommentPrompt,
+    analyzieProfilePrompt: values.analyzieProfilePrompt,
   }),
 }

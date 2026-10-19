@@ -63,8 +63,9 @@ fixtureAdapter.serializeInfoJson({ unknownField: "test" })
 export const invalidPostSerializer: PostScraperRunAdapter<{ fixtureOnly: string }>["serializeInfoJson"] = (metadata) => metadata
 // @ts-expect-error Extracted metadata must match the module's schema.
 export const invalidPostExtractor: PostScraperRunAdapter<{ fixtureOnly: string }>["extractInfoJson"] = () => ({ unknownField: "test" })
-// @ts-expect-error Production metadata requires searchTerm and maxResults.
+// @ts-expect-error Production metadata requires the Post Scraper custom fields.
 postScraperRunAdapter.adapter.serializeInfoJson({})
-export const postMetadataJson: string = postScraperRunAdapter.adapter.serializeInfoJson({ searchTerm: "software", maxResults: 100 })
+const postMetadata = { searchTerm: "software", postsCount: 100, postDescription: "", analyzieCommentPrompt: "", analyzieProfilePrompt: "" }
+export const postMetadataJson: string = postScraperRunAdapter.adapter.serializeInfoJson(postMetadata)
 // @ts-expect-error Numeric custom fields cannot be serialized as string inputs.
-postScraperRunAdapter.adapter.serializeInfoJson({ searchTerm: "software", maxResults: "100" })
+postScraperRunAdapter.adapter.serializeInfoJson({ ...postMetadata, postsCount: "100" })

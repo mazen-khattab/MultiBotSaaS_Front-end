@@ -11,7 +11,9 @@ import { renderWithProviders } from "@/test/renderWithProviders"
 
 const bots = [
   { code: "FB-MEMBERS-SCRAPER", id: 73, title: "Start Members Scraper", metadata: {} },
-  { code: "FB-POSTS-SCRAPER", id: 74, title: "Start Post Scraper", metadata: { searchTerm: "software", maxResults: 100 } },
+  { code: "FB-POSTS-SCRAPER", id: 74, title: "Start Post Scraper", metadata: {
+    searchTerm: "software", postsCount: 100, postDescription: "", analyzieCommentPrompt: "", analyzieProfilePrompt: "",
+  } },
   { code: "FB-MEMBERS-MESSAGES-SCRAPER", id: 75, title: "Start Members Messages Scraper", metadata: {} },
 ] as const
 
@@ -53,10 +55,13 @@ test.each(bots)("$code opens its own form and sends the current bot ID and only 
   await user.selectOptions(dialog.getByLabelText("Target group"), String(bot.id + 100))
   if (bot.code === "FB-POSTS-SCRAPER") {
     await user.type(dialog.getByLabelText("Search term"), "software")
-    expect(dialog.getByLabelText("Maximum results")).toHaveValue(100)
+    expect(dialog.getByLabelText("Posts count")).toHaveValue(100)
   } else {
     expect(dialog.queryByLabelText("Search term")).not.toBeInTheDocument()
-    expect(dialog.queryByLabelText("Maximum results")).not.toBeInTheDocument()
+    expect(dialog.queryByLabelText("Posts count")).not.toBeInTheDocument()
+    expect(dialog.queryByLabelText("Post description")).not.toBeInTheDocument()
+    expect(dialog.queryByLabelText("Analyze comment prompt")).not.toBeInTheDocument()
+    expect(dialog.queryByLabelText("Analyze profile posts prompt")).not.toBeInTheDocument()
     expect(dialog.queryByLabelText("Group members count")).not.toBeInTheDocument()
   }
   await user.click(dialog.getByRole("button", { name: "Start run" }))
