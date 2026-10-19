@@ -6,10 +6,13 @@ import { runTargetGroupIdSchema } from "@/features/runs/forms/runTargetGroupFiel
 // account and group selection outside this object so they never leak into infoJson.
 export const postScraperRunMetadataSchema = z.strictObject({
   searchTerm: z.string().trim().min(1, "Enter a search term."),
-  maxResults: z.number({ error: "Enter the maximum results." })
+  postsCount: z.number({ error: "Enter the posts count." })
     .int("Enter a whole number.")
-    .min(1, "Enter at least 1 result.")
-    .max(1000, "Enter no more than 1000 results."),
+    .min(1, "Enter at least 1 post.")
+    .max(1000, "Enter no more than 1000 posts."),
+  postDescription: z.string(),
+  analyzieCommentPrompt: z.string(),
+  analyzieProfilePrompt: z.string(),
 })
 
 export const postScraperRunSchema = postScraperRunMetadataSchema.extend({

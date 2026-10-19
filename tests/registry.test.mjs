@@ -166,13 +166,14 @@ test("each registered scraper selects its own creation form", () => {
 })
 
 test("post scraper schema validates its custom fields and serializes only its metadata", () => {
-  assert.equal(postScraperRunSchema.safeParse({ accountId: "12", targetGroupId: "5", searchTerm: "software", maxResults: 100 }).success, true)
-  assert.equal(postScraperRunSchema.safeParse({ accountId: "", targetGroupId: "5", searchTerm: "software", maxResults: 100 }).success, false)
+  const metadata = { searchTerm: "software", postsCount: 100, postDescription: "", analyzieCommentPrompt: "", analyzieProfilePrompt: "" }
+  assert.equal(postScraperRunSchema.safeParse({ accountId: "12", targetGroupId: "5", ...metadata }).success, true)
+  assert.equal(postScraperRunSchema.safeParse({ accountId: "", targetGroupId: "5", ...metadata }).success, false)
   assert.equal(postScraperRunAdapter.status, "ready")
   const { serializeInfoJson, extractInfoJson } = postScraperRunAdapter.adapter
-  assert.equal(serializeInfoJson({ searchTerm: " software ", maxResults: 100 }), '{"searchTerm":"software","maxResults":100}')
-  assert.deepEqual(extractInfoJson('{"searchTerm":"software","maxResults":100}'), { searchTerm: "software", maxResults: 100 })
-  for (const historical of ["{}", "invalid", '{"keywords":["founder"]}', '{"searchTerm":"software","maxResults":100,"accountId":12}']) {
+  assert.equal(serializeInfoJson({ ...metadata, searchTerm: " software " }), JSON.stringify(metadata))
+  assert.deepEqual(extractInfoJson(JSON.stringify(metadata)), metadata)
+  for (const historical of ["{}", "invalid", '{"keywords":["founder"]}', '{"searchTerm":"software","maxResults":100}', JSON.stringify({ ...metadata, accountId: 12 })]) {
     assert.equal(extractInfoJson(historical), undefined)
   }
   assert.equal(Object.isFrozen(postScraperRunAdapter), true)

@@ -62,17 +62,33 @@ test("registered Post Scraper sends custom fields as infoJson and refreshes hist
   )
   const { user, dialog } = await openRunForm()
   expect(writes).not.toHaveBeenCalled()
-  expect(dialog.getByLabelText("Maximum results")).toHaveValue(100)
+  expect(dialog.getByLabelText("Posts count")).toHaveValue(100)
   await user.selectOptions(dialog.getByLabelText("Connected account"), "12")
   await user.selectOptions(dialog.getByLabelText("Target group"), "5")
   await user.type(dialog.getByLabelText("Search term"), "  software  ")
-  await user.clear(dialog.getByLabelText("Maximum results"))
-  await user.type(dialog.getByLabelText("Maximum results"), "250")
+  await user.clear(dialog.getByLabelText("Posts count"))
+  await user.type(dialog.getByLabelText("Posts count"), "250")
+  for (const label of ["Post description", "Analyze comment prompt", "Analyze profile posts prompt"]) {
+    expect(dialog.getByLabelText(label).tagName).toBe("TEXTAREA")
+    expect(dialog.getByLabelText(label)).toHaveValue("")
+  }
+  await user.click(dialog.getByLabelText("Post description"))
+  await user.paste('Posts about "software"\nKeep relevant context.')
+  await user.click(dialog.getByLabelText("Analyze comment prompt"))
+  await user.paste("Analyze intent.\nInclude questions.")
+  await user.click(dialog.getByLabelText("Analyze profile posts prompt"))
+  await user.paste("Summarize the author's posts.")
   await user.click(dialog.getByRole("button", { name: "Start run" }))
   expect(await screen.findByText("Run #42 started successfully.")).toBeInTheDocument()
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
   expect(writes).toHaveBeenCalledExactlyOnceWith({
-    botId: 73, connectedAccountId: 12, targetGroupId: 5, infoJson: '{"searchTerm":"software","maxResults":250}',
+    botId: 73, connectedAccountId: 12, targetGroupId: 5,
+    infoJson: JSON.stringify({
+      searchTerm: "software", postsCount: 250,
+      postDescription: 'Posts about "software"\nKeep relevant context.',
+      analyzieCommentPrompt: "Analyze intent.\nInclude questions.",
+      analyzieProfilePrompt: "Summarize the author's posts.",
+    }),
   })
   expect(await screen.findByRole("button", { name: "Cancel run #42" })).toBeInTheDocument()
   expect(historyReads.mock.calls.length).toBeGreaterThanOrEqual(2)
@@ -81,10 +97,10 @@ test("registered Post Scraper sends custom fields as infoJson and refreshes hist
 })
 
 test.each([
-  ["", "Enter the maximum results."],
-  ["0", "Enter at least 1 result."],
+  ["", "Enter the posts count."],
+  ["0", "Enter at least 1 post."],
   ["1.5", "Enter a whole number."],
-  ["1001", "Enter no more than 1000 results."],
+  ["1001", "Enter no more than 1000 posts."],
 ])("invalid result limit %j prevents a create request", async (limit, message) => {
   const writes = vi.fn()
   server.use(http.post(`${apiOrigin}/api/v1/scrapes`, () => {
@@ -95,8 +111,8 @@ test.each([
   await user.selectOptions(dialog.getByLabelText("Connected account"), "12")
   await user.selectOptions(dialog.getByLabelText("Target group"), "5")
   await user.type(dialog.getByLabelText("Search term"), "software")
-  await user.clear(dialog.getByLabelText("Maximum results"))
-  if (limit) await user.type(dialog.getByLabelText("Maximum results"), limit)
+  await user.clear(dialog.getByLabelText("Posts count"))
+  if (limit) await user.type(dialog.getByLabelText("Posts count"), limit)
   await user.click(dialog.getByRole("button", { name: "Start run" }))
   expect(await screen.findByText(message)).toBeInTheDocument()
   expect(writes).not.toHaveBeenCalled()
@@ -130,12 +146,18 @@ test("a cooldown rejection preserves settings and permits an explicit retry", as
   await user.selectOptions(dialog.getByLabelText("Connected account"), "12")
   await user.selectOptions(dialog.getByLabelText("Target group"), "5")
   await user.type(dialog.getByLabelText("Search term"), "software")
+  await user.type(dialog.getByLabelText("Post description"), "Relevant posts")
+  await user.type(dialog.getByLabelText("Analyze comment prompt"), "Find intent")
+  await user.type(dialog.getByLabelText("Analyze profile posts prompt"), "Find interests")
   await user.click(dialog.getByRole("button", { name: "Start run" }))
   expect(await screen.findByText(/Bot is on cooldown/)).toBeInTheDocument()
   expect(dialog.getByLabelText("Connected account")).toHaveValue("12")
   expect(dialog.getByLabelText("Target group")).toHaveValue("5")
   expect(dialog.getByLabelText("Search term")).toHaveValue("software")
-  expect(dialog.getByLabelText("Maximum results")).toHaveValue(100)
+  expect(dialog.getByLabelText("Posts count")).toHaveValue(100)
+  expect(dialog.getByLabelText("Post description")).toHaveValue("Relevant posts")
+  expect(dialog.getByLabelText("Analyze comment prompt")).toHaveValue("Find intent")
+  expect(dialog.getByLabelText("Analyze profile posts prompt")).toHaveValue("Find interests")
   expect(writes).toHaveBeenCalledTimes(1)
   reject = false
   await user.click(dialog.getByRole("button", { name: "Start run" }))
@@ -185,9 +207,12 @@ test("no eligible accounts leaves the form accessible with guidance and blocks s
 
 test("metadata extraction rejects unknown historical shapes and account IDs", () => {
   const { serializeInfoJson, extractInfoJson } = postScraperRunAdapter.adapter
-  expect(serializeInfoJson({ searchTerm: " software ", maxResults: 1 })).toBe('{"searchTerm":"software","maxResults":1}')
-  for (const metadata of ["{}", "bad JSON", "null", "[]", '{"keywords":["software"]}', '{"searchTerm":"software","maxResults":1,"accountId":12}']) {
-    expect(extractInfoJson(metadata)).toBeUndefined()
+  const metadata = { searchTerm: " software ", postsCount: 1, postDescription: "", analyzieCommentPrompt: "", analyzieProfilePrompt: "" }
+  const json = serializeInfoJson(metadata)
+  expect(JSON.parse(json)).toEqual({ ...metadata, searchTerm: "software" })
+  expect(extractInfoJson(json)).toEqual({ ...metadata, searchTerm: "software" })
+  for (const invalidMetadata of ["{}", "bad JSON", "null", "[]", '{"keywords":["software"]}', '{"searchTerm":"software","maxResults":1}', JSON.stringify({ ...metadata, accountId: 12 })]) {
+    expect(extractInfoJson(invalidMetadata)).toBeUndefined()
   }
-  expect(postScraperRunSchema.safeParse({ accountId: "2147483648", targetGroupId: "5", searchTerm: "software", maxResults: 100 }).success).toBe(false)
+  expect(postScraperRunSchema.safeParse({ ...metadata, accountId: "2147483648", targetGroupId: "5" }).success).toBe(false)
 })
