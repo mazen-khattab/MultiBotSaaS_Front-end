@@ -13,6 +13,7 @@ export const postScraperRunMetadataSchema = z.strictObject({
   postDescription: z.string(),
   analyzieCommentPrompt: z.string(),
   analyzieProfilePrompt: z.string(),
+  aiMessageStructure: z.string(),
 })
 
 export const postScraperRunSchema = postScraperRunMetadataSchema.extend({
