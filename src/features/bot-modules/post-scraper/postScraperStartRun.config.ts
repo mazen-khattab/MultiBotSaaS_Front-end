@@ -1,20 +1,33 @@
-import { postScraperRunAdapter } from "@/features/bot-modules/post-scraper/postScraperRunAdapter"
-import { postScraperRunSchema, type PostScraperRunValues } from "@/features/bot-modules/post-scraper/postScraperRunSchema"
-import type { StartRunConfig } from "@/registry/configs/runsConfig.types"
-import { runTargetGroupField, runTargetGroupOptionsProvider } from "@/features/runs/forms/runTargetGroupField"
+import { postScraperRunAdapter } from "@/features/bot-modules/post-scraper/postScraperRunAdapter";
+import {
+  postScraperRunSchema,
+  type PostScraperRunValues,
+} from "@/features/bot-modules/post-scraper/postScraperRunSchema";
+import type { StartRunConfig } from "@/registry/configs/runsConfig.types";
+import {
+  runTargetGroupField,
+  runTargetGroupOptionsProvider,
+} from "@/features/runs/forms/runTargetGroupField";
 
 /** This bot owns its labels, defaults, validation, and outgoing JSON fields. */
 export const postScraperStartRunConfig: StartRunConfig<PostScraperRunValues> = {
   title: "Start Post Scraper",
-  description: "Choose an account and target group, then configure the posts you want to collect.",
+  description:
+    "Choose an account and target group, then configure the posts you want to collect.",
   // GenericRunsPage supplies this list from the existing eligible-accounts API.
   accountOptionsProvider: "post-scraper-accounts",
   targetGroupOptionsProvider: runTargetGroupOptionsProvider,
   form: {
     schema: postScraperRunSchema,
     defaultValues: {
-      accountId: "", targetGroupId: "", searchTerm: "", postsCount: 100,
-      postDescription: "", analyzieCommentPrompt: "", analyzieProfilePrompt: "",
+      accountId: "",
+      targetGroupId: "",
+      searchTerm: "",
+      postsCount: 10,
+      postDescription: "",
+      analyzieCommentPrompt: "",
+      analyzieProfilePrompt: "",
+      aiMessageStructure: "",
     },
     fields: [
       {
@@ -58,17 +71,24 @@ export const postScraperStartRunConfig: StartRunConfig<PostScraperRunValues> = {
         label: "Analyze profile posts prompt",
         type: "textarea",
       },
+      {
+        name: "aiMessageStructure",
+        label: "AI mesesage structure",
+        type: "textarea",
+      },
     ],
   },
   resolveSelection: (values) => ({
     connectedAccountId: Number(values.accountId),
     targetGroupId: Number(values.targetGroupId),
   }),
-  serializeInfoJson: (values) => postScraperRunAdapter.adapter.serializeInfoJson({
-    searchTerm: values.searchTerm,
-    postsCount: values.postsCount,
-    postDescription: values.postDescription,
-    analyzieCommentPrompt: values.analyzieCommentPrompt,
-    analyzieProfilePrompt: values.analyzieProfilePrompt,
-  }),
-}
+  serializeInfoJson: (values) =>
+    postScraperRunAdapter.adapter.serializeInfoJson({
+      searchTerm: values.searchTerm,
+      postsCount: values.postsCount,
+      postDescription: values.postDescription,
+      analyzieCommentPrompt: values.analyzieCommentPrompt,
+      analyzieProfilePrompt: values.analyzieProfilePrompt,
+      aiMessageStructure: values.aiMessageStructure,
+    }),
+};
