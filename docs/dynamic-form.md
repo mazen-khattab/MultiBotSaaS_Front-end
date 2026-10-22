@@ -1,5 +1,10 @@
 # Dynamic forms and modals
 
+`DynamicFormConfig.sections` optionally groups field names into titled sections
+with descriptions. Sections use two columns on larger screens and keep textareas
+full width. Fields omitted from sections still render after them. Validation,
+defaults, field visibility, and submission all use the same single form instance.
+
 Part 13 adds shared renderers for text, textarea, select, number, checkbox, and
 switch fields. `FormConfig<TInput, TOutput>` in the registry describes a static
 frontend form, while `DynamicForm` renders it with React Hook Form and Zod.

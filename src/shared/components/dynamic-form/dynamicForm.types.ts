@@ -74,6 +74,12 @@ export type DynamicFieldDefinition<TInput extends FieldValues> = TextField<TInpu
 
 export interface DynamicFormConfig<TInput extends FieldValues, TOutput extends FieldValues = TInput> {
   readonly fields: readonly DynamicFieldDefinition<TInput>[]
+  readonly sections?: readonly {
+    readonly key: string
+    readonly title: string
+    readonly description?: string
+    readonly fields: readonly FieldPath<TInput>[]
+  }[]
   // A single schema owns field validation, cross-field rules, and transforms.
   readonly schema: ZodType<TOutput, TInput>
   readonly defaultValues?: DefaultValues<TInput>

@@ -1,16 +1,17 @@
-import { createBrowserRouter, type RouteObject } from "react-router-dom"
+import { createBrowserRouter, type RouteObject } from "react-router-dom";
 
-import { RequireAuth } from "@/app/router/RequireAuth"
-import { RequireRole } from "@/app/router/RequireRole"
-import { routePaths } from "@/app/router/routePaths"
-import { botWorkspaceLoader } from "@/features/bots/loaders/botWorkspaceLoader"
-import { PageErrorState } from "@/shared/components/feedback/PageErrorState"
-import { RouteLoadingState } from "@/shared/components/feedback/RouteLoadingState"
+import { RequireAuth } from "@/app/router/RequireAuth";
+import { RequireRole } from "@/app/router/RequireRole";
+import { routePaths } from "@/app/router/routePaths";
+import { botWorkspaceLoader } from "@/features/bots/loaders/botWorkspaceLoader";
+import { PageErrorState } from "@/shared/components/feedback/PageErrorState";
+import { RouteLoadingState } from "@/shared/components/feedback/RouteLoadingState";
 
-const lazyPage = (loader: () => Promise<{ default: React.ComponentType }>) => async () => {
-  const module = await loader()
-  return { Component: module.default }
-}
+const lazyPage =
+  (loader: () => Promise<{ default: React.ComponentType }>) => async () => {
+    const module = await loader();
+    return { Component: module.default };
+  };
 
 export const appRoutes: RouteObject[] = [
   {
@@ -31,7 +32,9 @@ export const appRoutes: RouteObject[] = [
           },
           {
             path: routePaths.adminLogin,
-            lazy: lazyPage(() => import("@/features/auth/pages/AdminLoginPage")),
+            lazy: lazyPage(
+              () => import("@/features/auth/pages/AdminLoginPage"),
+            ),
           },
         ],
       },
@@ -43,19 +46,29 @@ export const appRoutes: RouteObject[] = [
             children: [
               {
                 path: routePaths.dashboard,
-                lazy: lazyPage(() => import("@/layouts/client/ClientMainLayout")),
+                lazy: lazyPage(
+                  () => import("@/layouts/client/ClientMainLayout"),
+                ),
                 children: [
                   {
                     index: true,
-                    lazy: lazyPage(() => import("@/features/client/pages/ClientOverviewPage")),
+                    lazy: lazyPage(
+                      () =>
+                        import("@/features/client/pages/ClientOverviewPage"),
+                    ),
                   },
                   {
                     path: "bots",
-                    lazy: lazyPage(() => import("@/features/client/pages/ClientBotsPage")),
+                    lazy: lazyPage(
+                      () => import("@/features/client/pages/ClientBotsPage"),
+                    ),
                   },
                   {
                     path: "settings",
-                    lazy: lazyPage(() => import("@/features/client/pages/ClientSettingsPage")),
+                    lazy: lazyPage(
+                      () =>
+                        import("@/features/client/pages/ClientSettingsPage"),
+                    ),
                   },
                 ],
               },
@@ -63,20 +76,43 @@ export const appRoutes: RouteObject[] = [
                 path: routePaths.botWorkspacePattern,
                 // Fetch owned BotDto data before resolving its exact module code.
                 loader: botWorkspaceLoader,
-                lazy: lazyPage(() => import("@/layouts/bot/BotWorkspaceLayout")),
+                lazy: lazyPage(
+                  () => import("@/layouts/bot/BotWorkspaceLayout"),
+                ),
                 children: [
                   {
                     index: true,
-                    lazy: lazyPage(() => import("@/features/bots/pages/BotWorkspaceHomePage")),
+                    lazy: lazyPage(
+                      () =>
+                        import("@/features/bots/pages/BotWorkspaceHomePage"),
+                    ),
+                  },
+                  {
+                    path: "runs/start",
+                    lazy: lazyPage(
+                      () =>
+                        import("@/features/bots/pages/BotStartRunRoutePage"),
+                    ),
+                  },
+                  {
+                    path: "leads/:leadId",
+                    lazy: lazyPage(
+                      () =>
+                        import("@/features/leads/pages/LeadDetailsRoutePage"),
+                    ),
                   },
                   {
                     path: ":tabSlug",
-                    lazy: lazyPage(() => import("@/features/bots/pages/BotTabRoutePage")),
+                    lazy: lazyPage(
+                      () => import("@/features/bots/pages/BotTabRoutePage"),
+                    ),
                   },
                   {
                     // Unknown nested paths keep the workspace's navigation.
                     path: "*",
-                    lazy: lazyPage(() => import("@/features/bots/pages/BotTabRoutePage")),
+                    lazy: lazyPage(
+                      () => import("@/features/bots/pages/BotTabRoutePage"),
+                    ),
                   },
                 ],
               },
@@ -96,27 +132,43 @@ export const appRoutes: RouteObject[] = [
                 children: [
                   {
                     index: true,
-                    lazy: lazyPage(() => import("@/features/admin/overview/AdminOverviewPage")),
+                    lazy: lazyPage(
+                      () =>
+                        import("@/features/admin/overview/AdminOverviewPage"),
+                    ),
                   },
                   {
                     path: "users",
-                    lazy: lazyPage(() => import("@/features/admin/users/AdminUsersPage")),
+                    lazy: lazyPage(
+                      () => import("@/features/admin/users/AdminUsersPage"),
+                    ),
                   },
                   {
                     path: "bots",
-                    lazy: lazyPage(() => import("@/features/admin/bots/AdminBotsPage")),
+                    lazy: lazyPage(
+                      () => import("@/features/admin/bots/AdminBotsPage"),
+                    ),
                   },
                   {
                     path: "subscriptions",
-                    lazy: lazyPage(() => import("@/features/admin/subscriptions/AdminSubscriptionsPage")),
+                    lazy: lazyPage(
+                      () =>
+                        import("@/features/admin/subscriptions/AdminSubscriptionsPage"),
+                    ),
                   },
                   {
                     path: "transactions",
-                    lazy: lazyPage(() => import("@/features/admin/transactions/AdminTransactionsPage")),
+                    lazy: lazyPage(
+                      () =>
+                        import("@/features/admin/transactions/AdminTransactionsPage"),
+                    ),
                   },
                   {
                     path: "audit-logs",
-                    lazy: lazyPage(() => import("@/features/admin/audit-logs/AdminAuditLogsPage")),
+                    lazy: lazyPage(
+                      () =>
+                        import("@/features/admin/audit-logs/AdminAuditLogsPage"),
+                    ),
                   },
                 ],
               },
@@ -130,7 +182,6 @@ export const appRoutes: RouteObject[] = [
       },
     ],
   },
-]
+];
 
-export const router = createBrowserRouter(appRoutes)
-
+export const router = createBrowserRouter(appRoutes);

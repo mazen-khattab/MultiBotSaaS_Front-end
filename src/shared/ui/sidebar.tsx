@@ -4,8 +4,12 @@ import { SidebarContext } from "@/shared/hooks/useSidebar"
 import { cn } from "@/shared/lib/utils"
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
+  const [desktopOpen, setDesktopOpen] = React.useState(true)
   const [mobileOpen, setMobileOpen] = React.useState(false)
-  const value = React.useMemo(() => ({ mobileOpen, setMobileOpen }), [mobileOpen])
+  const value = React.useMemo(
+    () => ({ desktopOpen, setDesktopOpen, mobileOpen, setMobileOpen }),
+    [desktopOpen, mobileOpen],
+  )
   return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>
 }
 

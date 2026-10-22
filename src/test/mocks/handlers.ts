@@ -1,7 +1,7 @@
 import { http, HttpResponse } from "msw/http"
 
 import { accountDetailsDto, accountDto, messagingAccountDto, adminIdentity, apiOrigin, apiPage, apiSuccess,
-  botDto, groupDetailsDto, groupDto, leadDto, userIdentity } from "@/test/fixtures/api.fixtures"
+  botDto, groupDetailsDto, groupDto, leadDto, leadDetailsDto, userIdentity } from "@/test/fixtures/api.fixtures"
 
 /** Exact existing endpoints only. Tests override these with server.use(); no
  * worker callback, future interface, fallback wildcard or fake business store. */
@@ -26,4 +26,5 @@ export const handlers = [
     const params = new URL(request.url).searchParams
     return HttpResponse.json(apiSuccess(apiPage([leadDto], Number(params.get("pageNumber") ?? 1))))
   }),
+  http.get(`${apiOrigin}/api/v1/Leads/101`, () => HttpResponse.json(apiSuccess(leadDetailsDto))),
 ]

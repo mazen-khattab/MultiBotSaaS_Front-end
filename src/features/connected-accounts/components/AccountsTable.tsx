@@ -83,6 +83,7 @@ export function AccountsTable({
       data={accounts}
       caption="All your connected accounts"
       getRowId={(account) => String(account.id)}
+      onRowClick={(account) => onView(account.id)}
       pagination={{ mode: "none" }}
       isLoading={isLoading}
       isFetching={isFetching}

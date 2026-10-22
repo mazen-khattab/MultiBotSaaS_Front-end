@@ -6,7 +6,31 @@ page fetches the current user's bot-specific leads with server pagination.
 Applying any status string filters through the backend and resets the page to
 one; clearing the filter or changing page size also resets pagination. Entering
 filter text does not trigger requests until Apply. No client search, sort,
-export, single-lead detail, or worker callback controls are exposed.
+export, or worker callback controls are exposed.
+
+Clicking a row in Leads or Available leads navigates to
+`/dashboard/bots/{botId}/leads/{leadId}`. The detail page fetches
+`GET /api/v1/Leads/{leadId}` instead of using a list-row snapshot. Its fixed DTO
+contains `id`, `botId`, `groupId`, `accountId`, `scrapeId`, `externalId`,
+`profileName`, `profileUrl`, `aiMessage`, `status`, `createdAt`, `processedAt`,
+and `metadataJson`. The returned lead and bot IDs must match the current route.
+
+Metadata is parsed independently and displayed by its actual keys, including
+renamed keys such as `relativePosts`. Nested objects, arrays, zero, booleans, and
+null values are supported. Long text retains line breaks and uses automatic
+text direction for Arabic. Empty metadata has an empty state; malformed JSON
+falls back to readable original text without hiding the fixed detail fields.
+Profile links remain restricted to HTTP/HTTPS, and metadata is rendered as text.
+Direct links, loading, retry, and return navigation to the originating list are supported.
+
+The detail page's **Remove lead** button opens a confirmation. Confirming calls
+`DELETE /api/v1/Leads/RemoveLead/{leadId}` with session cookies and no body or
+query parameters. Pending requests disable confirmation and cancellation; writes
+are not automatically retried. A successful API envelope (unless `data` is false)
+or HTTP 204 acknowledges removal. Other responses retain the detail and show an
+error for explicit retry. After acknowledgment, cached details for that lead are
+removed, lists and the current bot's messaging preview are invalidated, and the
+user returns to the originating list with a success notice.
 
 Available leads navigates to a separate workspace page with the backend's
 messaging quota and recipient list. Send message opens an account-selection
@@ -35,12 +59,12 @@ JavaScript's safe integer range are rejected rather than silently rounded.
 
 The clarified endpoints are:
 
-- List: `GET /api/leads/leads/{botId}`, with `pageNumber`, `pageSize`, and optional
+- List: `GET /api/v1/leads/leads/{botId}`, with `pageNumber`, `pageSize`, and optional
   `statusFilter` query parameters. The cache key includes botId and every parameter.
-- Preview: `GET /api/leads/bot/messaging-preview/{botId}`. This unversioned route
-  follows the approved flow and V2, superseding Part 17's `/api/v1/leads` spelling.
-- Account picker: `GET /api/v1/connectedaccounts/eligible/{botId}`, the documented
-  equivalent of the query-parameter eligibility route already used by Runs.
+- Detail: `GET /api/v1/Leads/{leadId}`. Details are cached separately by bot and lead ID.
+- Removal: `DELETE /api/v1/Leads/RemoveLead/{leadId}`, after confirmation on the detail page.
+- Preview: `GET /api/v1/leads/bot/messaging-preview/{botId}`.
+- Account picker: `GET /api/v1/connectedaccounts/eligible/messaging/{botId}`.
 - Dispatch: `POST /api/v1/worker/dispatch-messaging`, with only `botId`, `accountId`,
   and numeric `leadIds`. V2 defines the acknowledgment as `jobId`, `status`, and
   `totalLeadsCount`.

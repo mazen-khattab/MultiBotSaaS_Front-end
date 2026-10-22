@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AxiosError } from "axios";
 import { JSDOM } from "jsdom";
 import React from "react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import ts from "typescript";
 import { createServer } from "vite";
 import { z } from "zod";
@@ -193,6 +193,10 @@ const config = {
 const options = {
   accounts: { items: [{ value: "5", label: "Test account" }] },
 };
+function RoutedRuns(props) {
+  const location = useLocation();
+  return h(GenericRunsPage, { ...props, view: location.pathname.endsWith('/runs/start') ? 'start-run' : undefined });
+}
 function mount(props = {}) {
   // Retry enabled globally proves this write still opts out explicitly.
   const client = new QueryClient({
@@ -206,7 +210,7 @@ function mount(props = {}) {
     h(
       QueryClientProvider,
       { client },
-      h(MemoryRouter, null, h(GenericRunsPage, {
+      h(MemoryRouter, null, h(RoutedRuns, {
         botId: "1",
         config,
         options,
@@ -217,7 +221,7 @@ function mount(props = {}) {
   const view = render(page());
   return { ...view, update: (overrides) => view.rerender(page(overrides)) };
 }
-async function openModal() {
+async function openStartPage() {
   // Tests of submission wait for account readiness separately from opening.
   await waitFor(() => assert.ok(screen.queryByText("Loading eligible connected accounts…") === null));
   await waitFor(() =>
@@ -227,7 +231,7 @@ async function openModal() {
     ),
   );
   fireEvent.click(screen.getByRole("button", { name: "Start run" }));
-  const dialog = await screen.findByRole("dialog", { name: "Start run" });
+  const dialog = await screen.findByRole("region", { name: "Start run" });
   await waitFor(() => assert.equal(screen.queryAllByText("Loading eligible connected accounts…").length, 0));
   return dialog;
 }
@@ -402,20 +406,20 @@ test("capability, absent form, and feature readiness each disable creation with 
   assert.ok(screen.getByText("Module configuration is not ready."));
 });
 
-test("starting a run validates and serializes the form, closes the modal, and shows only acknowledgment", async () => {
+test("starting a run validates and serializes the form, returns to history, and shows only acknowledgment", async () => {
   const requests = [];
   api.defaults.adapter = async (request) => {
     requests.push(request);
     return success(request);
   };
   mount();
-  await openModal();
+  await openStartPage();
   fireEvent.change(screen.getByRole("textbox", { name: "Search term" }), {
     target: { value: "  Parsed term  " },
   });
   submit();
   await screen.findByText("Run #42 started successfully.");
-  assert.equal(screen.queryByRole("dialog"), null);
+  assert.equal(screen.queryByRole("form", { name: "Start run" }), null);
   assert.match(
     screen.getByRole("status").textContent,
     /Run #42 started successfully/,
@@ -427,7 +431,7 @@ test("starting a run validates and serializes the form, closes the modal, and sh
   });
   assert.equal(requests.length, 1);
   assert.equal(screen.queryByRole("table"), null);
-  await openModal();
+  await openStartPage();
   assert.equal(
     screen.getByRole("textbox", { name: "Search term" }).value,
     "Initial term",
@@ -460,7 +464,7 @@ for (const [status, message, guidance] of [
       throw failure(request, status, message);
     };
     mount();
-    await openModal();
+    await openStartPage();
     fireEvent.change(screen.getByRole("textbox", { name: "Search term" }), {
       target: { value: "Retained" },
     });
@@ -472,7 +476,7 @@ for (const [status, message, guidance] of [
       screen.getByRole("textbox", { name: "Search term" }).value,
       "Retained",
     );
-    assert.ok(screen.getByRole("dialog"));
+    assert.ok(screen.getByRole("form", { name: "Start run" }));
     assert.equal(screen.queryByRole("status"), null);
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
@@ -484,13 +488,13 @@ for (const [status, message, guidance] of [
     };
     submit();
     await waitFor(() =>
-      assert.equal(screen.queryByRole("dialog") === null, true),
+      assert.equal(screen.queryByRole("form", { name: "Start run" }) === null, true),
     );
     assert.equal(calls, 2);
   });
 }
 
-test("rapid submissions cannot duplicate a write and pending requests block dismissal", async () => {
+test("rapid submissions cannot duplicate a write and pending requests disable page navigation", async () => {
   let finish,
     calls = 0;
   const pending = new Promise((resolve) => {
@@ -502,23 +506,23 @@ test("rapid submissions cannot duplicate a write and pending requests block dism
     return success(request);
   };
   mount();
-  await openModal();
+  await openStartPage();
   submit();
   submit();
   await waitFor(() => assert.equal(calls, 1));
   assert.equal(screen.getByRole("button", { name: "Cancel" }).disabled, true);
   assert.equal(
-    screen.getByRole("button", { name: "Close dialog" }).disabled,
+    screen.getByRole("button", { name: "Back to runs" }).disabled,
     true,
   );
   fireEvent.keyDown(document.activeElement, { key: "Escape" });
-  assert.ok(screen.getByRole("dialog"));
+  assert.ok(screen.getByRole("form", { name: "Start run" }));
   await act(async () => {
     finish();
     await pending;
   });
   await waitFor(() =>
-    assert.equal(screen.queryByRole("dialog") === null, true),
+    assert.equal(screen.queryByRole("form", { name: "Start run" }) === null, true),
   );
   assert.equal(calls, 1);
 });
@@ -535,7 +539,7 @@ test("a late creation response cannot acknowledge a run in another bot workspace
     return success(request);
   };
   const view = mount();
-  await openModal();
+  await openStartPage();
   submit();
   await waitFor(() => assert.equal(calls, 1));
   view.update({ botId: "2" });
@@ -543,8 +547,8 @@ test("a late creation response cannot acknowledge a run in another bot workspace
     finish();
     await pending;
   });
-  assert.equal(screen.queryByRole("status"), null);
-  assert.equal(screen.queryByRole("dialog"), null);
+  assert.equal(screen.queryByText("Run #42 started successfully."), null);
+  assert.ok(screen.getByRole("form", { name: "Start run" }));
 });
 
 test("switching bots during selection preparation prevents an obsolete eligibility check and run POST", async () => {
@@ -556,15 +560,15 @@ test("switching bots during selection preparation prevents an obsolete eligibili
     ...config.startRun,
     resolveSelection: async () => { preparing = true; await pending; return { connectedAccountId: 5 }; },
   } } });
-  await openModal();
+  await openStartPage();
   submit();
   await waitFor(() => assert.equal(preparing, true));
   view.update({ botId: "2" });
-  await waitFor(() => assert.equal(eligibilityReads, 3));
+  await waitFor(() => assert.equal(eligibilityReads, 2));
   await act(async () => { finish(); await pending; });
-  assert.equal(eligibilityReads, 3);
+  assert.equal(eligibilityReads, 2);
   assert.equal(writes, 0);
-  assert.equal(screen.queryByRole("dialog"), null);
+  assert.ok(screen.getByRole("form", { name: "Start run" }));
   assert.equal(screen.queryByRole("status"), null);
 });
 
@@ -581,14 +585,8 @@ test("an empty eligible response allows opening the form but prevents submission
     return success(request, []);
   };
   mount();
-  await screen.findByText(
-    "No eligible connected accounts are available for this bot.",
-  );
-  assert.equal(
-    screen.getByRole("button", { name: "Start run" }).disabled,
-    false,
-  );
-  await openModal();
+  await openStartPage();
+  await screen.findByText("No eligible connected accounts are available for this bot.");
   assert.equal(screen.getByRole("button", { name: "Start run", hidden: false }).disabled, true);
   submit();
   assert.equal(calls, 0);
@@ -705,7 +703,7 @@ test("history pagination, page size, and status filtering send server params and
   fireEvent.change(screen.getByRole("combobox", { name: "Run status" }), {
     target: { value: "Cancelled" },
   });
-  await screen.findByText("Cancelled", { selector: "td" });
+  await screen.findByRole("cell", { name: "Cancelled" });
   assert.deepEqual(filters.at(-1), {
     botId: 1,
     pageNumber: 1,
@@ -761,7 +759,7 @@ test("only Running runs without an end time expose Cancel, and cancelled status 
   );
   assert.equal(writes, 1);
   assert.equal(reads, 2);
-  assert.equal(screen.getAllByText("Cancelled", { selector: "td" }).length, 2);
+  assert.equal(screen.getAllByRole("cell", { name: "Cancelled" }).length, 2);
 });
 
 test("details load on demand and refetch their final cancellation state", async () => {
@@ -787,7 +785,7 @@ test("details load on demand and refetch their final cancellation state", async 
   assert.equal(urls.filter((url) => url === "/api/v1/scrapes/42").length, 1);
   fireEvent.click(screen.getByRole("button", { name: "Close details" }));
   fireEvent.click(screen.getByRole("button", { name: "Cancel run #42" }));
-  await screen.findByText("Cancelled", { selector: "td" });
+  await screen.findByRole("cell", { name: "Cancelled" });
   fireEvent.click(screen.getByRole("button", { name: "View run #42" }));
   await screen.findByText("Cancelled", { selector: "dd" });
   assert.equal(urls.filter((url) => url === "/api/v1/scrapes/42").length, 2);
@@ -819,7 +817,7 @@ test("cancel prevents duplicate writes and explains server rejection without ret
   });
   await screen.findByText("This run is already completed.");
   assert.equal(writes, 1);
-  assert.equal(screen.queryByText("Cancelled", { selector: "td" }), null);
+  assert.equal(screen.queryByRole("cell", { name: "Cancelled" }), null);
 });
 
 test("create invalidates history and eligible accounts so the backend's busy account disappears", async () => {
@@ -842,19 +840,16 @@ test("create invalidates history and eligible accounts so the backend's busy acc
       capabilities: { ...historyConfig.capabilities, canCreateRun: true },
     },
   });
-  await openModal();
+  await openStartPage();
   submit();
   await screen.findByText("Run #42 started successfully.");
-  await screen.findByText("Running", { selector: "td" });
+  await screen.findByRole("cell", { name: "Running" });
   assert.equal(
     screen.getByRole("button", { name: "Start run" }).disabled,
     false,
   );
-  assert.ok(
-    screen.getByText(
-      "No eligible connected accounts are available for this bot.",
-    ),
-  );
+  await openStartPage();
+  assert.ok(screen.getByText("No eligible connected accounts are available for this bot."));
   assert.equal(eligibilityReads, 4);
 });
 
@@ -863,14 +858,15 @@ test("eligible query failure keeps the form accessible and a successful retry su
     throw failure(request, 404, "Bot subscription not found.");
   };
   mount();
-  await screen.findByText("Bot subscription not found.");
+  await openStartPage();
+  await screen.findByText("Eligible connected accounts could not be loaded.");
   assert.equal(
     screen.getByRole("button", { name: "Start run" }).disabled,
-    false,
+    true,
   );
   eligibleResponse = async (request) => success(request, accounts);
-  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-  await openModal();
+  fireEvent.click(screen.getByRole("button", { name: "Refresh accounts" }));
+  await waitFor(() => assert.equal(screen.getByRole("combobox", { name: "Account" }).disabled, false));
   assert.equal(
     screen.getByRole("combobox", { name: "Account" }).options[1].textContent,
     "Test account",

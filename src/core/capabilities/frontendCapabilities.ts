@@ -86,8 +86,8 @@ export const frontendCapabilities = Object.freeze({
     description: "Bot-scoped lead lists use the real paginated response and status filter.",
   },
   leadDetail: {
-    status: "frontend-not-implemented", audience: "browser", contract: "§7.3.3, §16",
-    description: "Lead details have a backend API; a frontend detail service, hook and view are not implemented.",
+    status: "available", audience: "browser", contract: "§7.3.3, §16",
+    description: "Lead detail pages fetch the complete record and render dynamic metadata for the current bot workspace.",
   },
   leadExport: {
     status: "blocked-backend", audience: "browser", contract: "§3.4, §16.3",

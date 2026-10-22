@@ -8,13 +8,17 @@ import type { BotTabComponent, BotTabComponentProps } from "@/registry/botRegist
 import { PageContainer } from "@/shared/components/layout/PageContainer"
 
 /** Render an existing lazy component reference, rather than defining a new page. */
-function BotTabContent({ component: Component, botId, config }: BotTabComponentProps & { component: BotTabComponent }) {
-  return <Component botId={botId} config={config} />
+function BotTabContent({ component: Component, botId, config, view }: BotTabComponentProps & { component: BotTabComponent }) {
+  return <Component botId={botId} config={config} view={view} />
 }
 
 /** Select registered tabs from the parent workspace, never from URL guesses. */
-export default function BotTabRoutePage() {
-  const { botId, tabSlug } = useParams<keyof BotRouteParams>()
+export default function BotTabRoutePage({ tabSlug: suppliedTabSlug, view }: {
+  readonly tabSlug?: string
+  readonly view?: "start-run"
+} = {}) {
+  const { botId, tabSlug: routeTabSlug } = useParams<keyof BotRouteParams>()
+  const tabSlug = suppliedTabSlug ?? routeTabSlug
   const workspace = useOutletContext<BotWorkspaceContextValue | undefined>()
 
   if (!workspace) {
@@ -41,13 +45,13 @@ export default function BotTabRoutePage() {
       <div className="page-heading">
         <p className="eyebrow">{workspace.descriptor.name} / Workspace</p>
         <h2>
-          {tab.label}
+          {view === "start-run" ? "Start run" : tab.label}
         </h2>
       </div>
       {/* Loading stays inside the workspace shell while the lazy page arrives. */}
       <div className="luxury-panel client-tab-panel">
         <Suspense fallback={<p role="status" className="py-8 text-sm text-muted-foreground">Loading {tab.label}…</p>}>
-          <BotTabContent key={`${workspace.descriptor.botId}:${tab.slug}`} component={Component} botId={workspace.descriptor.botId} config={tab.config} />
+          <BotTabContent key={`${workspace.descriptor.botId}:${tab.slug}:${view ?? "list"}`} component={Component} botId={workspace.descriptor.botId} config={tab.config} view={view} />
         </Suspense>
       </div>
     </PageContainer>

@@ -10,6 +10,23 @@ export interface LeadListDto {
   readonly createdAt: string
 }
 
+/** Detail DTO from GET /api/v1/Leads/{leadId}; metadata keys are not fixed. */
+export interface LeadDetailsDto {
+  readonly id: number
+  readonly botId: number
+  readonly groupId: number | null
+  readonly accountId: number | null
+  readonly scrapeId: number | null
+  readonly externalId: string | null
+  readonly profileName: string
+  readonly profileUrl: string
+  readonly aiMessage: string
+  readonly status: string
+  readonly createdAt: string
+  readonly processedAt: string | null
+  readonly metadataJson: string | null
+}
+
 export interface LeadsListParams {
   readonly botId: number
   readonly pageNumber: number

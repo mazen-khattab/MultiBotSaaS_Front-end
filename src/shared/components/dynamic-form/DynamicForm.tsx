@@ -38,6 +38,17 @@ export function DynamicForm<TInput extends FieldValues, TOutput extends FieldVal
   const fields = visibleFields.map((definition) => ({ definition, options: getFieldOptions(definition, options) }))
   const optionsBlocked = fields.some((field) => field.options?.isLoading || field.options?.error)
   const blocked = disabled || optionsBlocked
+  const sections = config.sections?.map((section) => ({
+    ...section,
+    fields: fields.filter(({ definition }) => section.fields.includes(definition.name)),
+  })).filter((section) => section.fields.length > 0)
+  // New module fields remain visible even before a section is assigned to them.
+  const ungroupedFields = fields.filter(({ definition }) => !config.sections?.some((section) => section.fields.includes(definition.name)))
+
+  const renderField = ({ definition, options: fieldOptions }: (typeof fields)[number]) => (
+    <DynamicField key={definition.name} definition={definition} control={form.control} getValues={form.getValues}
+      disabled={disabled || isSubmitting || evaluateFieldRule(definition.disabled, values, false)} options={fieldOptions} />
+  )
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -97,10 +108,18 @@ export function DynamicForm<TInput extends FieldValues, TOutput extends FieldVal
   return (
     <form aria-label={label} aria-busy={isSubmitting} noValidate onSubmit={submit} className={cn("space-y-5", className)}>
       <fieldset disabled={disabled || isSubmitting} className="space-y-5">
-        {fields.map(({ definition, options: fieldOptions }) => (
-          <DynamicField key={definition.name} definition={definition} control={form.control} getValues={form.getValues}
-            disabled={disabled || isSubmitting || evaluateFieldRule(definition.disabled, values, false)} options={fieldOptions} />
-        ))}
+        {sections?.length ? <>
+          {sections.map((section) => (
+            <section key={section.key} aria-label={section.title} className="rounded-xl border bg-card p-5 sm:p-6">
+              <h4 className="text-base font-semibold">{section.title}</h4>
+              {section.description ? <p className="mt-2 text-sm leading-6 text-muted-foreground">{section.description}</p> : null}
+              <div className="mt-5 grid gap-5 md:grid-cols-2">
+                {section.fields.map((field) => <div key={field.definition.name} className={cn("min-w-0", field.definition.type === "textarea" && "md:col-span-2")}>{renderField(field)}</div>)}
+              </div>
+            </section>
+          ))}
+          {ungroupedFields.map(renderField)}
+        </> : fields.map(renderField)}
       </fieldset>
       {errors.root?.submit ? <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{errors.root.submit.message}</p> : null}
       {errors.root?.validation ? <p role="alert" className="text-sm text-red-600">{errors.root.validation.message}</p> : null}

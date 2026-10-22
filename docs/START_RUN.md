@@ -5,7 +5,7 @@ All three registered scrapers now have independent start-run forms:
 | Bot | Current fields | Custom `infoJson` |
 | --- | --- | --- |
 | `FB-MEMBERS-SCRAPER` | Connected account, Target group | `{}` |
-| `FB-POSTS-SCRAPER` | Connected account, Target group, Search term, Posts count, Post description, Analyze comment prompt, Analyze profile posts prompt | `{"searchTerm":"software","postsCount":100,"postDescription":"","analyzieCommentPrompt":"","analyzieProfilePrompt":""}` |
+| `FB-POSTS-SCRAPER` | Connected account, Target group, Search term, Posts count, Post description, Analyze comment prompt, Analyze profile posts prompt, AI message structure | `{"searchTerm":"software","postsCount":10,"postDescription":"","analyzieCommentPrompt":"","analyzieProfilePrompt":"","aiMessageStructure":""}` |
 | `FB-MEMBERS-MESSAGES-SCRAPER` | Connected account, Target group | `{}` |
 
 The member bots select an account and group without extra run metadata. Their existing `groupMembersCount` and
@@ -15,23 +15,27 @@ They are not silently copied into a run's `infoJson`.
 ## Try the form
 
 1. Open **My bots → choose a bot → Runs**.
-2. Click **Start run**. The configured modal can open even while accounts load,
-   when none are eligible, or when the account request fails.
+2. Click **Start run** to navigate to `/dashboard/bots/{botId}/runs/start`.
+   This page also supports direct visits and refreshes. It remains accessible
+   while accounts load, when none are eligible, or when an account request fails.
 3. Choose an eligible connected account. If none are available, use **Manage
-   connected accounts** and **Refresh accounts** in the modal. Eligibility is
+   connected accounts** and **Refresh accounts** on the page. Eligibility is
    decided by the API; submission stays disabled until eligible accounts load.
 4. Choose a **Target group**. Options come from the signed-in user's existing
    `GET /api/v1/TargetGroups/{botId}` list. Inactive groups are labeled and cannot
    be selected. If there are no active groups, use **Manage target groups**, then
    **Refresh groups**. Loading or failed group reads block submission with a
-   recovery message. The page button still opens the modal.
+   recovery message. The Start run button still navigates to the form page.
 5. For Post Scraper, enter a search term and a posts count from 1 to 1000. The
-   post description, comment analysis prompt, and profile posts analysis prompt
-   are optional textareas. Empty values are sent as empty strings; multiline
-   content is preserved.
-6. Submit. The dialog closes after the API returns a valid run ID. History and
-   account eligibility refresh. A failed request keeps the form open and preserves
-   the values so the user can correct them or explicitly retry.
+   post description, comment analysis prompt, profile posts analysis prompt, and
+   AI message structure are optional textareas. Fields are grouped into account
+   and target group, collection settings, and AI instructions. Empty values are
+   sent as empty strings; multiline content is preserved.
+6. Submit. After the API returns a valid run ID, navigation returns to Runs with
+   a success acknowledgment. History and account eligibility are invalidated.
+   Failed requests preserve the form values for correction or an explicit retry.
+   **Cancel** and **Back to runs** return without creating a run and are disabled
+   during submission. A late response after leaving cannot redirect a new workspace.
 
 The browser sends a cookie-authenticated `POST /api/v1/scrapes`:
 
@@ -130,7 +134,7 @@ Actual backend/n8n execution for the member bots has not been verified here.
 4. Pass that `runsConfig` to `defineLeadsScraperModule`, as Post Scraper does.
 5. Register the module using its exact existing backend `uiModuleCode`.
 
-The shared Runs page, modal, and API service render and submit that module's form.
+The shared Runs page, StartRunPage/StartRunForm, and API service render and submit that module's form.
 The generic fallback stays available for bots whose fields have not been supplied.
 
 ## Backend follow-up: pass the chosen group to n8n

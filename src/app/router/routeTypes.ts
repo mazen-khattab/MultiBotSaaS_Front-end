@@ -1,6 +1,7 @@
 export interface BotRouteParams {
   botId: string
   tabSlug?: string
+  leadId?: string
 }
 
 export type TopLevelRouteArea = "public" | "client" | "bot-workspace" | "admin"

@@ -32,7 +32,7 @@ export function BotWorkspaceSidebar({ botId, title, tabs, onNavigate }: BotWorks
               {tabs.map((tab) => (
                 <NavigationItem
                   key={tab.slug}
-                  item={{ key: tab.slug, title: tab.label, href: buildBotTabPath(botId, tab.slug), icon: tab.icon, end: true }}
+                  item={{ key: tab.slug, title: tab.label, href: buildBotTabPath(botId, tab.slug), icon: tab.icon, end: tab.slug !== "runs" && tab.slug !== "leads" }}
                   onNavigate={onNavigate}
                 />
               ))}

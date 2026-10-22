@@ -1,7 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
+import { buildBotLeadDetailsPath } from "@/app/router/routePaths";
 import { DispatchMessagesModal } from "@/features/leads/components/DispatchMessagesModal";
 import { LeadProfile } from "@/features/leads/components/LeadProfile";
+import { LeadRemovalNotice } from "@/features/leads/components/LeadRemovalNotice";
 import { useMessagingPreview } from "@/features/leads/hooks/useMessagingPreview";
 import type {
   DispatchMessagingResultDto,
@@ -23,17 +26,14 @@ const previewColumns: readonly DataTableColumn<MessagingPreviewLeadDto>[] = [
   {
     key: "message",
     header: "AI message",
-    cell: (lead) => (
-      <p className="min-w-48 max-w-sm whitespace-pre-wrap break-words">
-        {lead.aiMessage}
-      </p>
-    ),
+    accessorKey: "aiMessage",
   },
   { key: "status", header: "Status", accessorKey: "status" },
 ];
 
 /** Display backend quota and available rows without calculating local eligibility. */
 export function MessagingPreview({ botId }: { readonly botId: number }) {
+  const navigate = useNavigate();
   const preview = useMessagingPreview(botId);
   const [open, setOpen] = useState(false);
   const [acknowledgment, setAcknowledgment] =
@@ -53,6 +53,7 @@ export function MessagingPreview({ botId }: { readonly botId: number }) {
 
   return (
     <section aria-label="Messaging preview" className="space-y-6">
+      <LeadRemovalNotice botId={botId} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-xl font-semibold">Available leads</h3>
         <div className="flex flex-wrap gap-3">
@@ -131,6 +132,7 @@ export function MessagingPreview({ botId }: { readonly botId: number }) {
         data={preview.data?.leads ?? []}
         caption="Available leads for messaging"
         getRowId={(lead) => String(lead.leadId)}
+        onRowClick={(lead) => navigate(buildBotLeadDetailsPath(String(botId), lead.leadId), { state: { leadDetailsSource: "messaging-preview" } })}
         pagination={{ mode: "none" }}
         isLoading={preview.isPending}
         isFetching={preview.isFetching}

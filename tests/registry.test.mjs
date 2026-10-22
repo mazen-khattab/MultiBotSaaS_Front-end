@@ -166,7 +166,7 @@ test("each registered scraper selects its own creation form", () => {
 })
 
 test("post scraper schema validates its custom fields and serializes only its metadata", () => {
-  const metadata = { searchTerm: "software", postsCount: 100, postDescription: "", analyzieCommentPrompt: "", analyzieProfilePrompt: "" }
+  const metadata = { searchTerm: "software", postsCount: 100, postDescription: "", analyzieCommentPrompt: "", analyzieProfilePrompt: "", aiMessageStructure: "" }
   assert.equal(postScraperRunSchema.safeParse({ accountId: "12", targetGroupId: "5", ...metadata }).success, true)
   assert.equal(postScraperRunSchema.safeParse({ accountId: "", targetGroupId: "5", ...metadata }).success, false)
   assert.equal(postScraperRunAdapter.status, "ready")

@@ -19,6 +19,11 @@ export const postScraperStartRunConfig: StartRunConfig<PostScraperRunValues> = {
   targetGroupOptionsProvider: runTargetGroupOptionsProvider,
   form: {
     schema: postScraperRunSchema,
+    sections: [
+      { key: "connections", title: "Account and target group", description: "Choose which account will collect posts and where it will run.", fields: ["accountId", "targetGroupId"] },
+      { key: "collection", title: "Collection settings", description: "Define the posts to find and how many to collect.", fields: ["searchTerm", "postsCount", "postDescription"] },
+      { key: "instructions", title: "AI instructions", description: "Add guidance for analyzing comments, reviewing profiles, and writing messages.", fields: ["analyzieCommentPrompt", "analyzieProfilePrompt", "aiMessageStructure"] },
+    ],
     defaultValues: {
       accountId: "",
       targetGroupId: "",
@@ -73,7 +78,7 @@ export const postScraperStartRunConfig: StartRunConfig<PostScraperRunValues> = {
       },
       {
         name: "aiMessageStructure",
-        label: "AI mesesage structure",
+        label: "AI message structure",
         type: "textarea",
       },
     ],

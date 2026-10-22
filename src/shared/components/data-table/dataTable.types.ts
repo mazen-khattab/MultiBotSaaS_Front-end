@@ -52,6 +52,7 @@ export interface DataTableProps<TData> {
   readonly data: readonly TData[]
   readonly caption: string
   readonly getRowId?: (row: TData, index: number) => string
+  readonly onRowClick?: (row: TData) => void
   readonly pagination?: DataTablePaginationConfig
   readonly sorting?: DataTableSorting
   readonly filters?: DataTableFilters

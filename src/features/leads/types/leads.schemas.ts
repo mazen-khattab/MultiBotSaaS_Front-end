@@ -2,7 +2,7 @@ import { z } from "zod"
 
 // .NET Int64 IDs arrive as JSON numbers. Reject unsafe integers instead of
 // silently dispatching a rounded ID to a different lead.
-const leadIdSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER)
+export const leadIdSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER)
 export const botIdSchema = z.number().int().positive().max(2_147_483_647)
 
 /** Allowlist the supplied DTOs before caching or displaying server data. */
@@ -15,6 +15,23 @@ export const leadListSchema = z.object({
   fromGroup: z.string(),
   status: z.string(),
   createdAt: z.string(),
+})
+
+export const leadDetailsSchema = z.object({
+  id: leadIdSchema,
+  botId: botIdSchema,
+  groupId: botIdSchema.nullable(),
+  accountId: botIdSchema.nullable(),
+  scrapeId: leadIdSchema.nullable(),
+  externalId: z.string().nullable(),
+  profileName: z.string(),
+  profileUrl: z.string(),
+  aiMessage: z.string(),
+  status: z.string(),
+  createdAt: z.string(),
+  processedAt: z.string().nullable(),
+  // Parse separately for presentation: malformed metadata must not hide the record.
+  metadataJson: z.string().nullable(),
 })
 
 export const leadsPageSchema = z.object({
