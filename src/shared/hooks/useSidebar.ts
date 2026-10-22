@@ -1,6 +1,8 @@
 import { createContext, useContext } from "react"
 
 export interface SidebarContextValue {
+  desktopOpen: boolean
+  setDesktopOpen: (open: boolean) => void
   mobileOpen: boolean
   setMobileOpen: (open: boolean) => void
 }

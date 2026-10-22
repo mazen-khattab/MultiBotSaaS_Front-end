@@ -33,6 +33,7 @@ export function GroupsTable({ groups, isLoading, isFetching, error, onRetry, onS
   ], [onSelect])
 
   return <DataTable columns={columns} data={groups} caption="Bot target groups" getRowId={(group) => String(group.id)}
+    onRowClick={(group) => onSelect("view", group.id)}
     pagination={{ mode: "none" }} isLoading={isLoading} isFetching={isFetching} error={error} onRetry={onRetry}
     emptyTitle="No target groups" emptyDescription="Add a target group for the current bot." />
 }

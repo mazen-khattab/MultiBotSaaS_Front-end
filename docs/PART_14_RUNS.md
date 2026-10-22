@@ -31,11 +31,11 @@ has no metadata ("{}"). Concrete bot metadata schemas are not defined by this
 contract, so production start forms remain deferred to the appropriate feature.
 No guessed metadata or account-management behavior is introduced.
 
-The shared dynamic modal preserves failed input, prevents duplicate submission
-and pending dismissal, and closes after successful creation. Creation invalidates
+The dedicated Start run page preserves failed input, prevents duplicate submission,
+and returns to run history after successful creation. Creation invalidates
 history and eligibility. 429 and validation failures retain safe backend messages
 with guidance. No cooldown countdown or structured field error is inferred.
 
 Validate using type-check, lint, tests, and build. Tests exercise real services
-with test-only HTTP adapters and page/modal behavior in JSDOM. Full account/group
+with test-only HTTP adapters and page navigation in JSDOM. Full account/group
 management, messaging, leads, and real-time integration remain outside this patch.

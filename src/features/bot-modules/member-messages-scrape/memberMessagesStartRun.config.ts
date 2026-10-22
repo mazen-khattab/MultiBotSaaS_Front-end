@@ -20,6 +20,7 @@ export const memberMessagesStartRunConfig: StartRunConfig<MemberMessagesRunValue
   form: {
     defaultValues: { accountId: "", targetGroupId: "" },
     schema: memberMessagesRunSchema,
+    sections: [{ key: "connections", title: "Account and target group", description: "Choose the account and group for this run. Member-count settings are saved with the target group.", fields: ["accountId", "targetGroupId"] }],
     fields: [
       runAccountField,
       runTargetGroupField,

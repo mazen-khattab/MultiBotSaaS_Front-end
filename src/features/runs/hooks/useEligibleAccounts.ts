@@ -9,5 +9,6 @@ export function useEligibleAccounts(botId: number, enabled = true) {
     queryKey: queryKeys.accounts.list({ botId, eligible: true, type: "Scraping" }),
     queryFn: ({ signal }) => EligibleAccountsService.getScrapingEligibleAccounts(botId, signal),
     enabled: enabled && Number.isInteger(botId) && botId > 0,
+    refetchOnMount: "always",
   })
 }

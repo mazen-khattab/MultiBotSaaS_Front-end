@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { DispatchMessagesModal } from "@/features/leads/components/DispatchMessagesModal";
 import { LeadProfile } from "@/features/leads/components/LeadProfile";
+import { LeadDetailsDialog } from "@/features/leads/components/LeadDetailsDialog";
 import { useMessagingPreview } from "@/features/leads/hooks/useMessagingPreview";
 import type {
   DispatchMessagingResultDto,
@@ -23,11 +24,7 @@ const previewColumns: readonly DataTableColumn<MessagingPreviewLeadDto>[] = [
   {
     key: "message",
     header: "AI message",
-    cell: (lead) => (
-      <p className="min-w-48 max-w-sm whitespace-pre-wrap break-words">
-        {lead.aiMessage}
-      </p>
-    ),
+    accessorKey: "aiMessage",
   },
   { key: "status", header: "Status", accessorKey: "status" },
 ];
@@ -36,6 +33,7 @@ const previewColumns: readonly DataTableColumn<MessagingPreviewLeadDto>[] = [
 export function MessagingPreview({ botId }: { readonly botId: number }) {
   const preview = useMessagingPreview(botId);
   const [open, setOpen] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<MessagingPreviewLeadDto | null>(null);
   const [acknowledgment, setAcknowledgment] =
     useState<DispatchMessagingResultDto | null>(null);
   const ready = Boolean(preview.data) && !preview.error && !preview.isFetching;
@@ -131,6 +129,7 @@ export function MessagingPreview({ botId }: { readonly botId: number }) {
         data={preview.data?.leads ?? []}
         caption="Available leads for messaging"
         getRowId={(lead) => String(lead.leadId)}
+        onRowClick={setSelectedLead}
         pagination={{ mode: "none" }}
         isLoading={preview.isPending}
         isFetching={preview.isFetching}
@@ -149,6 +148,7 @@ export function MessagingPreview({ botId }: { readonly botId: number }) {
           onDispatched={setAcknowledgment}
         />
       ) : null}
+      {selectedLead ? <LeadDetailsDialog lead={selectedLead} onClose={() => setSelectedLead(null)} /> : null}
     </section>
   );
 }

@@ -56,6 +56,7 @@ export default function AdminUsersPage() {
       search: search || undefined, isDeleted: state ? state === "inactive" : undefined })} />
     {notice ? <p role="status">{notice}</p> : null}
     <DataTable caption="Regular users" data={users.data?.items ?? []} getRowId={(user) => user.id}
+      onRowClick={(user) => choose({ mode: "view", id: user.id })}
       isLoading={users.isPending} isFetching={users.isFetching} error={users.error} onRetry={() => { void users.refetch() }}
       columns={[
         { key: "name", header: "Name", accessorKey: "fullName" }, { key: "email", header: "Email", accessorKey: "email" },

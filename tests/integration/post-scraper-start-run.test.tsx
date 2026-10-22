@@ -1,3 +1,4 @@
+import { useLocation } from "react-router-dom";
 import { Suspense } from "react";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw/http";
@@ -20,12 +21,41 @@ const RegisteredRunsPage =
   botModulesRegistry["FB-POSTS-SCRAPER"]!.resolveComponent("runs")!;
 
 function PostRuns() {
+  const location = useLocation();
   return (
     <Suspense fallback={<p>Loading runs…</p>}>
-      <RegisteredRunsPage botId="73" />
+      <RegisteredRunsPage botId="73" view={location.pathname.endsWith("/runs/start") ? "start-run" : undefined} />
     </Suspense>
   );
 }
+
+function CurrentRoute() {
+  const location = useLocation();
+  return <output aria-label="Current route">{location.pathname}</output>;
+}
+
+test("a direct start-page visit shows every field in sections, and Cancel returns to Runs without a write", async () => {
+  const writes = vi.fn();
+  server.use(http.post(`${apiOrigin}/api/v1/scrapes`, () => {
+    writes();
+    return HttpResponse.json(apiSuccess(42));
+  }));
+  const { user } = renderWithProviders(<><PostRuns /><CurrentRoute /></>, { route: "/dashboard/bots/73/runs/start" });
+  const page = within(await screen.findByRole("region", { name: "Start Post Scraper" }));
+  await waitFor(() => expect(page.getByLabelText("Connected account")).toBeEnabled());
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  for (const title of ["Account and target group", "Collection settings", "AI instructions"]) {
+    expect(page.getByRole("region", { name: title })).toBeInTheDocument();
+  }
+  for (const label of ["Connected account", "Target group", "Search term", "Posts count", "Post description", "Analyze comment prompt", "Analyze profile posts prompt", "AI message structure"]) {
+    expect(page.getByLabelText(label)).toBeInTheDocument();
+  }
+  await user.type(page.getByLabelText("Search term"), "Unsubmitted settings");
+  await user.click(page.getByRole("button", { name: "Cancel" }));
+  expect(screen.getByLabelText("Current route")).toHaveTextContent("/dashboard/bots/73/runs");
+  expect(screen.queryByRole("form", { name: "Start Post Scraper" })).not.toBeInTheDocument();
+  expect(writes).not.toHaveBeenCalled();
+});
 
 beforeEach(() => {
   server.use(
@@ -46,13 +76,13 @@ async function openRunForm() {
   );
   await waitFor(() => expect(start).toBeEnabled());
   await view.user.click(start);
-  const dialog = within(
-    await screen.findByRole("dialog", { name: "Start Post Scraper" }),
+  const runPage = within(
+    await screen.findByRole("region", { name: "Start Post Scraper" }),
   );
   await waitFor(() =>
-    expect(dialog.getByLabelText("Target group")).toBeEnabled(),
+    expect(runPage.getByLabelText("Target group")).toBeEnabled(),
   );
-  return { ...view, dialog };
+  return { ...view, runPage };
 }
 
 test("registered Post Scraper sends custom fields as infoJson and refreshes history and account eligibility", async () => {
@@ -105,35 +135,35 @@ test("registered Post Scraper sends custom fields as infoJson and refreshes hist
       return HttpResponse.json(apiSuccess(42));
     }),
   );
-  const { user, dialog } = await openRunForm();
+  const { user, runPage } = await openRunForm();
   expect(writes).not.toHaveBeenCalled();
-  expect(dialog.getByLabelText("Posts count")).toHaveValue(100);
-  await user.selectOptions(dialog.getByLabelText("Connected account"), "12");
-  await user.selectOptions(dialog.getByLabelText("Target group"), "5");
-  await user.type(dialog.getByLabelText("Search term"), "  software  ");
-  await user.clear(dialog.getByLabelText("Posts count"));
-  await user.type(dialog.getByLabelText("Posts count"), "250");
+  expect(runPage.getByLabelText("Posts count")).toHaveValue(10);
+  await user.selectOptions(runPage.getByLabelText("Connected account"), "12");
+  await user.selectOptions(runPage.getByLabelText("Target group"), "5");
+  await user.type(runPage.getByLabelText("Search term"), "  software  ");
+  await user.clear(runPage.getByLabelText("Posts count"));
+  await user.type(runPage.getByLabelText("Posts count"), "250");
   for (const label of [
     "Post description",
     "Analyze comment prompt",
     "Analyze profile posts prompt",
   ]) {
-    expect(dialog.getByLabelText(label).tagName).toBe("TEXTAREA");
-    expect(dialog.getByLabelText(label)).toHaveValue("");
+    expect(runPage.getByLabelText(label).tagName).toBe("TEXTAREA");
+    expect(runPage.getByLabelText(label)).toHaveValue("");
   }
-  await user.click(dialog.getByLabelText("Post description"));
+  await user.click(runPage.getByLabelText("Post description"));
   await user.paste('Posts about "software"\nKeep relevant context.');
-  await user.click(dialog.getByLabelText("Analyze comment prompt"));
+  await user.click(runPage.getByLabelText("Analyze comment prompt"));
   await user.paste("Analyze intent.\nInclude questions.");
-  await user.click(dialog.getByLabelText("Analyze profile posts prompt"));
+  await user.click(runPage.getByLabelText("Analyze profile posts prompt"));
   await user.paste("Summarize the author's posts.");
-  await user.click(dialog.getByLabelText("AI mesesage structure"));
+  await user.click(runPage.getByLabelText("AI message structure"));
   await user.paste("Structure about the ai message.");
-  await user.click(dialog.getByRole("button", { name: "Start run" }));
+  await user.click(runPage.getByRole("button", { name: "Start run" }));
   expect(
     await screen.findByText("Run #42 started successfully."),
   ).toBeInTheDocument();
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(screen.queryByRole("form", { name: "Start Post Scraper" })).not.toBeInTheDocument();
   expect(writes).toHaveBeenCalledExactlyOnceWith({
     botId: 73,
     connectedAccountId: 12,
@@ -170,16 +200,16 @@ test.each([
         return HttpResponse.json(apiSuccess(42));
       }),
     );
-    const { user, dialog } = await openRunForm();
-    await user.selectOptions(dialog.getByLabelText("Connected account"), "12");
-    await user.selectOptions(dialog.getByLabelText("Target group"), "5");
-    await user.type(dialog.getByLabelText("Search term"), "software");
-    await user.clear(dialog.getByLabelText("Posts count"));
-    if (limit) await user.type(dialog.getByLabelText("Posts count"), limit);
-    await user.click(dialog.getByRole("button", { name: "Start run" }));
+    const { user, runPage } = await openRunForm();
+    await user.selectOptions(runPage.getByLabelText("Connected account"), "12");
+    await user.selectOptions(runPage.getByLabelText("Target group"), "5");
+    await user.type(runPage.getByLabelText("Search term"), "software");
+    await user.clear(runPage.getByLabelText("Posts count"));
+    if (limit) await user.type(runPage.getByLabelText("Posts count"), limit);
+    await user.click(runPage.getByRole("button", { name: "Start run" }));
     expect(await screen.findByText(message)).toBeInTheDocument();
     expect(writes).not.toHaveBeenCalled();
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("form", { name: "Start Post Scraper" })).toBeInTheDocument();
   },
 );
 
@@ -191,9 +221,9 @@ test("account and nonblank search term are required before submission", async ()
       return HttpResponse.json(apiSuccess(42));
     }),
   );
-  const { user, dialog } = await openRunForm();
-  await user.type(dialog.getByLabelText("Search term"), "   ");
-  await user.click(dialog.getByRole("button", { name: "Start run" }));
+  const { user, runPage } = await openRunForm();
+  await user.type(runPage.getByLabelText("Search term"), "   ");
+  await user.click(runPage.getByRole("button", { name: "Start run" }));
   expect(
     await screen.findByText("Choose a connected account."),
   ).toBeInTheDocument();
@@ -215,37 +245,37 @@ test("a cooldown rejection preserves settings and permits an explicit retry", as
         : HttpResponse.json(apiSuccess(42));
     }),
   );
-  const { user, dialog } = await openRunForm();
-  await user.selectOptions(dialog.getByLabelText("Connected account"), "12");
-  await user.selectOptions(dialog.getByLabelText("Target group"), "5");
-  await user.type(dialog.getByLabelText("Search term"), "software");
-  await user.type(dialog.getByLabelText("Post description"), "Relevant posts");
+  const { user, runPage } = await openRunForm();
+  await user.selectOptions(runPage.getByLabelText("Connected account"), "12");
+  await user.selectOptions(runPage.getByLabelText("Target group"), "5");
+  await user.type(runPage.getByLabelText("Search term"), "software");
+  await user.type(runPage.getByLabelText("Post description"), "Relevant posts");
   await user.type(
-    dialog.getByLabelText("Analyze comment prompt"),
+    runPage.getByLabelText("Analyze comment prompt"),
     "Find intent",
   );
   await user.type(
-    dialog.getByLabelText("Analyze profile posts prompt"),
+    runPage.getByLabelText("Analyze profile posts prompt"),
     "Find interests",
   );
-  await user.click(dialog.getByRole("button", { name: "Start run" }));
+  await user.click(runPage.getByRole("button", { name: "Start run" }));
   expect(await screen.findByText(/Bot is on cooldown/)).toBeInTheDocument();
-  expect(dialog.getByLabelText("Connected account")).toHaveValue("12");
-  expect(dialog.getByLabelText("Target group")).toHaveValue("5");
-  expect(dialog.getByLabelText("Search term")).toHaveValue("software");
-  expect(dialog.getByLabelText("Posts count")).toHaveValue(100);
-  expect(dialog.getByLabelText("Post description")).toHaveValue(
+  expect(runPage.getByLabelText("Connected account")).toHaveValue("12");
+  expect(runPage.getByLabelText("Target group")).toHaveValue("5");
+  expect(runPage.getByLabelText("Search term")).toHaveValue("software");
+  expect(runPage.getByLabelText("Posts count")).toHaveValue(10);
+  expect(runPage.getByLabelText("Post description")).toHaveValue(
     "Relevant posts",
   );
-  expect(dialog.getByLabelText("Analyze comment prompt")).toHaveValue(
+  expect(runPage.getByLabelText("Analyze comment prompt")).toHaveValue(
     "Find intent",
   );
-  expect(dialog.getByLabelText("Analyze profile posts prompt")).toHaveValue(
+  expect(runPage.getByLabelText("Analyze profile posts prompt")).toHaveValue(
     "Find interests",
   );
   expect(writes).toHaveBeenCalledTimes(1);
   reject = false;
-  await user.click(dialog.getByRole("button", { name: "Start run" }));
+  await user.click(runPage.getByRole("button", { name: "Start run" }));
   expect(
     await screen.findByText("Run #42 started successfully."),
   ).toBeInTheDocument();
@@ -265,22 +295,22 @@ test("pending creation prevents duplicate requests and dismissal", async () => {
       return HttpResponse.json(apiSuccess(42));
     }),
   );
-  const { user, dialog } = await openRunForm();
-  await user.selectOptions(dialog.getByLabelText("Connected account"), "12");
-  await user.selectOptions(dialog.getByLabelText("Target group"), "5");
-  await user.type(dialog.getByLabelText("Search term"), "software");
-  const form = dialog.getByRole("form", { name: "Start Post Scraper" });
+  const { user, runPage } = await openRunForm();
+  await user.selectOptions(runPage.getByLabelText("Connected account"), "12");
+  await user.selectOptions(runPage.getByLabelText("Target group"), "5");
+  await user.type(runPage.getByLabelText("Search term"), "software");
+  const form = runPage.getByRole("form", { name: "Start Post Scraper" });
   fireEvent.submit(form);
   fireEvent.submit(form);
   try {
     await waitFor(() => expect(writes).toHaveBeenCalledTimes(1));
     expect(
-      dialog.getByRole("button", { name: "Starting run…" }),
+      runPage.getByRole("button", { name: "Starting run…" }),
     ).toBeDisabled();
-    expect(dialog.getByRole("button", { name: "Close dialog" })).toBeDisabled();
-    expect(dialog.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(runPage.getByRole("button", { name: "Back to runs" })).toBeDisabled();
+    expect(runPage.getByRole("button", { name: "Cancel" })).toBeDisabled();
     await user.keyboard("{Escape}");
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("form", { name: "Start Post Scraper" })).toBeInTheDocument();
   } finally {
     finish();
   }
@@ -296,21 +326,21 @@ test("no eligible accounts leaves the form accessible with guidance and blocks s
     ),
   );
   const { user } = renderWithProviders(<PostRuns />);
+  await user.click(await screen.findByRole("button", { name: "Start run" }));
   expect(
     await screen.findByText(
       "No eligible connected accounts are available for this bot.",
     ),
   ).toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "Start run" }));
-  const dialog = within(
-    await screen.findByRole("dialog", { name: "Start Post Scraper" }),
+  const runPage = within(
+    await screen.findByRole("region", { name: "Start Post Scraper" }),
   );
-  expect(dialog.getByRole("button", { name: "Start run" })).toBeDisabled();
+  expect(runPage.getByRole("button", { name: "Start run" })).toBeDisabled();
   expect(
-    dialog.getByRole("link", { name: "Manage connected accounts" }),
+    runPage.getByRole("link", { name: "Manage connected accounts" }),
   ).toHaveAttribute("href", "/dashboard/bots/73/connected-accounts");
   expect(
-    dialog.getByRole("button", { name: "Refresh accounts" }),
+    runPage.getByRole("button", { name: "Refresh accounts" }),
   ).toBeEnabled();
 });
 

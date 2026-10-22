@@ -11,11 +11,12 @@ interface GroupRunsPageProps<TInput extends FieldValues, TOutput extends FieldVa
   readonly botId: string
   readonly config: RunsPageConfig<TInput, TOutput>
   readonly groupOptionsProvider: string
+  readonly view?: "start-run"
 }
 
 /** Keep group reads outside the generic renderer and scoped to this workspace. */
 export default function GroupRunsPage<TInput extends FieldValues, TOutput extends FieldValues = TInput>({
-  botId, config, groupOptionsProvider,
+  botId, config, groupOptionsProvider, view,
 }: GroupRunsPageProps<TInput, TOutput>) {
   const groups = useGroups(Number(botId))
   const hasActiveGroups = groups.data?.some((group) => group.isActive) ?? false
@@ -31,6 +32,7 @@ export default function GroupRunsPage<TInput extends FieldValues, TOutput extend
     key={botId}
     botId={botId}
     config={config}
+    view={view}
     options={{
       [groupOptionsProvider]: {
         items: (groups.data ?? []).map((group) => ({

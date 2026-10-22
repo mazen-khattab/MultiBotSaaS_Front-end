@@ -50,15 +50,15 @@ export function defineLeadsScraperModule<TInput extends FieldValues = Record<str
       if (groupOptionsProvider) {
         const { default: GroupRunsPage } = await import("@/features/runs/pages/GroupRunsPage")
         return {
-          default: function ScraperGroupRunsPage({ botId }: BotTabComponentProps) {
-            return createElement(GroupRunsPage<TInput, TOutput>, { botId, config: runsConfig, groupOptionsProvider })
+          default: function ScraperGroupRunsPage({ botId, view }: BotTabComponentProps) {
+            return createElement(GroupRunsPage<TInput, TOutput>, { botId, config: runsConfig, groupOptionsProvider, view })
           },
         }
       }
       const { default: GenericRunsPage } = await import("@/features/runs/pages/GenericRunsPage")
       return {
-        default: function ScraperRunsPage({ botId }: BotTabComponentProps) {
-          return createElement(GenericRunsPage<TInput, TOutput>, { botId, config: runsConfig })
+        default: function ScraperRunsPage({ botId, view }: BotTabComponentProps) {
+          return createElement(GenericRunsPage<TInput, TOutput>, { botId, config: runsConfig, view })
         },
       }
     })

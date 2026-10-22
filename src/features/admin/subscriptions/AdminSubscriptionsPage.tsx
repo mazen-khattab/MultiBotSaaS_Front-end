@@ -57,6 +57,7 @@ export default function AdminSubscriptionsPage() {
     <p className="text-sm text-muted-foreground">Existing rows grant access independently of user or bot lifecycle status. Removed assignments have no inactive history.</p>
     {notice ? <p role="status">{notice}</p> : null}
     <DataTable caption="UserBot assignments" data={assignments.data?.items ?? []} getRowId={(assignment) => String(assignment.id)}
+      onRowClick={(assignment) => choose({ mode: "view", id: assignment.id })}
       isLoading={assignments.isPending} isFetching={assignments.isFetching} error={assignments.error} onRetry={() => { void assignments.refetch() }}
       columns={[
         { key: "id", header: "Assignment ID", accessorKey: "id" }, { key: "user", header: "User", accessorKey: "userFullName" },

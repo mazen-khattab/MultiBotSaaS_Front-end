@@ -1,3 +1,4 @@
+import { useLocation } from "react-router-dom"
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { http, HttpResponse } from "msw/http"
 import { expect, test, vi } from "vitest"
@@ -39,20 +40,24 @@ function deferred() {
   return { promise, resolve }
 }
 
+function Runs({ configuration = config }: { configuration?: RunsPageConfig<z.infer<typeof schema>> }) {
+  const location = useLocation()
+  return <GenericRunsPage botId="73" config={configuration} view={location.pathname.endsWith("/runs/start") ? "start-run" : undefined} />
+}
+
 async function openForm(configuration: RunsPageConfig<z.infer<typeof schema>> = config) {
-  const view = renderWithProviders(<GenericRunsPage botId="73" config={configuration} />)
-  await waitFor(() => expect(view.queryClient.getQueryState(accountKey)?.status).toBe("success"))
+  const view = renderWithProviders(<Runs configuration={configuration} />)
   await view.user.click(screen.getByRole("button", { name: "Start run" }))
-  const dialog = within(await screen.findByRole("dialog", { name: "Start run" }))
-  await waitFor(() => expect(dialog.getByLabelText("Account")).toBeEnabled())
-  return { ...view, dialog }
+  const runPage = within(await screen.findByRole("region", { name: "Start run" }))
+  await waitFor(() => expect(runPage.getByLabelText("Account")).toBeEnabled())
+  return { ...view, runPage }
 }
 
 test("every opening refreshes cached scraping accounts and blocks submission until it finishes", async () => {
   const writes = vi.fn()
   server.use(http.post(`${apiOrigin}/api/v1/scrapes`, () => { writes(); return HttpResponse.json(apiSuccess(42)) }))
-  const view = renderWithProviders(<GenericRunsPage botId="73" config={config} />)
-  await waitFor(() => expect(view.queryClient.getQueryState(accountKey)?.status).toBe("success"))
+  const view = renderWithProviders(<Runs />)
+  view.queryClient.setQueryData(accountKey, [accountDto])
   const reads = vi.fn()
   for (const available of [true, false]) {
     const pending = deferred()
@@ -63,20 +68,20 @@ test("every opening refreshes cached scraping accounts and blocks submission unt
     }))
     try {
       await view.user.click(screen.getByRole("button", { name: "Start run" }))
-      const dialog = within(await screen.findByRole("dialog", { name: "Start run" }))
-      expect(dialog.getByRole("button", { name: "Start run" })).toBeDisabled()
-      expect(dialog.getByLabelText("Account")).toBeDisabled()
-      fireEvent.submit(dialog.getByRole("form"))
+      const runPage = within(await screen.findByRole("region", { name: "Start run" }))
+      expect(runPage.getByRole("button", { name: "Start run" })).toBeDisabled()
+      expect(runPage.getByLabelText("Account")).toBeDisabled()
+      fireEvent.submit(runPage.getByRole("form"))
       expect(writes).not.toHaveBeenCalled()
       pending.resolve()
       await waitFor(() => expect(view.queryClient.getQueryState(accountKey)?.fetchStatus).toBe("idle"))
       if (available) {
-        await waitFor(() => expect(dialog.getByLabelText("Account")).toBeEnabled())
+        await waitFor(() => expect(runPage.getByLabelText("Account")).toBeEnabled())
       } else {
-        expect(await dialog.findByText("No eligible connected accounts are available for this bot.")).toBeInTheDocument()
-        expect(dialog.queryByRole("option", { name: accountDto.displayName })).not.toBeInTheDocument()
+        expect(await runPage.findByText("No eligible connected accounts are available for this bot.")).toBeInTheDocument()
+        expect(runPage.queryByRole("option", { name: accountDto.displayName })).not.toBeInTheDocument()
       }
-      await view.user.click(dialog.getByRole("button", { name: "Cancel" }))
+      await view.user.click(runPage.getByRole("button", { name: "Cancel" }))
     } finally {
       pending.resolve()
     }
@@ -88,12 +93,12 @@ test("every opening refreshes cached scraping accounts and blocks submission unt
 test("submission refetches eligibility and refuses an account that expired while the form was open", async () => {
   const writes = vi.fn()
   server.use(http.post(`${apiOrigin}/api/v1/scrapes`, () => { writes(); return HttpResponse.json(apiSuccess(42)) }))
-  const { user, dialog } = await openForm()
+  const { user, runPage } = await openForm()
   const checks = vi.fn()
   server.use(http.get(eligibilityUrl, () => { checks(); return HttpResponse.json(apiSuccess([])) }))
-  await user.click(dialog.getByRole("button", { name: "Start run" }))
-  expect(await dialog.findByText(/This account is no longer eligible/)).toBeInTheDocument()
-  expect(dialog.getByLabelText("Search term")).toHaveValue("Retained settings")
+  await user.click(runPage.getByRole("button", { name: "Start run" }))
+  expect(await runPage.findByText(/This account is no longer eligible/)).toBeInTheDocument()
+  expect(runPage.getByLabelText("Search term")).toHaveValue("Retained settings")
   expect(checks).toHaveBeenCalledTimes(1)
   expect(writes).not.toHaveBeenCalled()
   expect(screen.queryByText("Run #42 started successfully.")).not.toBeInTheDocument()
@@ -102,18 +107,18 @@ test("submission refetches eligibility and refuses an account that expired while
 test("a failed submission-time eligibility check prevents POST and can be refreshed and retried", async () => {
   const writes = vi.fn()
   server.use(http.post(`${apiOrigin}/api/v1/scrapes`, () => { writes(); return HttpResponse.json(apiSuccess(42)) }))
-  const { user, dialog } = await openForm()
+  const { user, runPage } = await openForm()
   server.use(http.get(eligibilityUrl, () => HttpResponse.json(
     apiFailure(404, "Accounts unavailable.", "/api/v1/connectedaccounts/eligible/scraping/73"), { status: 404 },
   )))
-  await user.click(dialog.getByRole("button", { name: "Start run" }))
-  expect(await dialog.findByText(/Run was not started.*Accounts unavailable/)).toBeInTheDocument()
+  await user.click(runPage.getByRole("button", { name: "Start run" }))
+  expect(await runPage.findByText(/Run was not started.*Accounts unavailable/)).toBeInTheDocument()
   expect(writes).not.toHaveBeenCalled()
   server.use(http.get(eligibilityUrl, () => HttpResponse.json(apiSuccess([accountDto]))))
-  await user.click(dialog.getByRole("button", { name: "Refresh accounts" }))
-  await waitFor(() => expect(dialog.getByRole("button", { name: "Start run" })).toBeEnabled())
-  expect(dialog.getByLabelText("Search term")).toHaveValue("Retained settings")
-  await user.click(dialog.getByRole("button", { name: "Start run" }))
+  await user.click(runPage.getByRole("button", { name: "Refresh accounts" }))
+  await waitFor(() => expect(runPage.getByRole("button", { name: "Start run" })).toBeEnabled())
+  expect(runPage.getByLabelText("Search term")).toHaveValue("Retained settings")
+  await user.click(runPage.getByRole("button", { name: "Start run" }))
   expect(await screen.findByText("Run #42 started successfully.")).toBeInTheDocument()
   expect(writes).toHaveBeenCalledTimes(1)
 })
@@ -129,7 +134,7 @@ test.each(["invalidated", "refreshing"])("submission refuses a query that become
     resolveSelection: async () => { started(); await preparing.promise; return { connectedAccountId: 12 } },
   } })
   try {
-    await view.user.click(view.dialog.getByRole("button", { name: "Start run" }))
+    await view.user.click(view.runPage.getByRole("button", { name: "Start run" }))
     expect(started).toHaveBeenCalledTimes(1)
     if (state === "refreshing") {
       server.use(http.get(eligibilityUrl, async () => {
@@ -142,7 +147,7 @@ test.each(["invalidated", "refreshing"])("submission refuses a query that become
       refresh = view.queryClient.invalidateQueries({ queryKey: accountKey, refetchType: state === "refreshing" ? "active" : "none" })
     })
     await act(async () => { preparing.resolve(); await preparing.promise })
-    expect(await view.dialog.findByText(/Wait for eligible accounts to finish refreshing/)).toBeInTheDocument()
+    expect(await view.runPage.findByText(/Wait for eligible accounts to finish refreshing/)).toBeInTheDocument()
     expect(writes).not.toHaveBeenCalled()
     await act(async () => { refreshing.resolve(); await refresh })
   } finally {

@@ -1,3 +1,4 @@
+import { useLocation } from "react-router-dom"
 import { Suspense } from "react"
 import { act, screen, waitFor, within } from "@testing-library/react"
 import { http, HttpResponse } from "msw/http"
@@ -12,7 +13,7 @@ import { renderWithProviders } from "@/test/renderWithProviders"
 const bots = [
   { code: "FB-MEMBERS-SCRAPER", id: 73, title: "Start Members Scraper", metadata: {} },
   { code: "FB-POSTS-SCRAPER", id: 74, title: "Start Post Scraper", metadata: {
-    searchTerm: "software", postsCount: 100, postDescription: "", analyzieCommentPrompt: "", analyzieProfilePrompt: "",
+    searchTerm: "software", postsCount: 10, postDescription: "", analyzieCommentPrompt: "", analyzieProfilePrompt: "", aiMessageStructure: "",
   } },
   { code: "FB-MEMBERS-MESSAGES-SCRAPER", id: 75, title: "Start Members Messages Scraper", metadata: {} },
 ] as const
@@ -22,7 +23,8 @@ const runsPages = Object.fromEntries(Object.entries(botModulesRegistry)
 
 function Runs({ code, id }: { code: string; id: number }) {
   const Page = runsPages[code]!
-  return <Suspense fallback={<p>Loading runs…</p>}><Page botId={String(id)} /></Suspense>
+  const location = useLocation()
+  return <Suspense fallback={<p>Loading runs…</p>}><Page botId={String(id)} view={location.pathname.endsWith("/runs/start") ? "start-run" : undefined} /></Suspense>
 }
 
 beforeEach(() => {
@@ -48,23 +50,23 @@ test.each(bots)("$code opens its own form and sends the current bot ID and only 
   )
   const { user } = renderWithProviders(<Runs {...bot} />)
   await user.click(await screen.findByRole("button", { name: "Start run" }, { timeout: 5000 }))
-  const dialog = within(await screen.findByRole("dialog", { name: bot.title }))
-  const account = dialog.getByLabelText("Connected account")
+  const runPage = within(await screen.findByRole("region", { name: bot.title }))
+  const account = runPage.getByLabelText("Connected account")
   await waitFor(() => expect(account).toBeEnabled())
   await user.selectOptions(account, String(accountDto.id))
-  await user.selectOptions(dialog.getByLabelText("Target group"), String(bot.id + 100))
+  await user.selectOptions(runPage.getByLabelText("Target group"), String(bot.id + 100))
   if (bot.code === "FB-POSTS-SCRAPER") {
-    await user.type(dialog.getByLabelText("Search term"), "software")
-    expect(dialog.getByLabelText("Posts count")).toHaveValue(100)
+    await user.type(runPage.getByLabelText("Search term"), "software")
+    expect(runPage.getByLabelText("Posts count")).toHaveValue(10)
   } else {
-    expect(dialog.queryByLabelText("Search term")).not.toBeInTheDocument()
-    expect(dialog.queryByLabelText("Posts count")).not.toBeInTheDocument()
-    expect(dialog.queryByLabelText("Post description")).not.toBeInTheDocument()
-    expect(dialog.queryByLabelText("Analyze comment prompt")).not.toBeInTheDocument()
-    expect(dialog.queryByLabelText("Analyze profile posts prompt")).not.toBeInTheDocument()
-    expect(dialog.queryByLabelText("Group members count")).not.toBeInTheDocument()
+    expect(runPage.queryByLabelText("Search term")).not.toBeInTheDocument()
+    expect(runPage.queryByLabelText("Posts count")).not.toBeInTheDocument()
+    expect(runPage.queryByLabelText("Post description")).not.toBeInTheDocument()
+    expect(runPage.queryByLabelText("Analyze comment prompt")).not.toBeInTheDocument()
+    expect(runPage.queryByLabelText("Analyze profile posts prompt")).not.toBeInTheDocument()
+    expect(runPage.queryByLabelText("Group members count")).not.toBeInTheDocument()
   }
-  await user.click(dialog.getByRole("button", { name: "Start run" }))
+  await user.click(runPage.getByRole("button", { name: "Start run" }))
   expect(await screen.findByText("Run #42 started successfully.")).toBeInTheDocument()
   expect(writes).toHaveBeenCalledExactlyOnceWith({
     botId: bot.id, connectedAccountId: accountDto.id, targetGroupId: bot.id + 100, infoJson: JSON.stringify(bot.metadata),
@@ -83,23 +85,23 @@ test.each(bots)("$code opens without eligible accounts and recovers through Refr
   )
   const { user } = renderWithProviders(<Runs {...bot} />)
   await user.click(await screen.findByRole("button", { name: "Start run" }))
-  const dialog = within(await screen.findByRole("dialog", { name: bot.title }))
-  expect(await dialog.findByText("No eligible connected accounts are available for this bot.")).toBeInTheDocument()
-  expect(dialog.getByRole("button", { name: "Start run" })).toBeDisabled()
-  expect(dialog.getByRole("link", { name: "Manage connected accounts" })).toHaveAttribute("href", `/dashboard/bots/${bot.id}/connected-accounts`)
+  const runPage = within(await screen.findByRole("region", { name: bot.title }))
+  expect(await runPage.findByText("No eligible connected accounts are available for this bot.")).toBeInTheDocument()
+  expect(runPage.getByRole("button", { name: "Start run" })).toBeDisabled()
+  expect(runPage.getByRole("link", { name: "Manage connected accounts" })).toHaveAttribute("href", `/dashboard/bots/${bot.id}/connected-accounts`)
   expect(writes).not.toHaveBeenCalled()
   ready = true
-  await user.click(dialog.getByRole("button", { name: "Refresh accounts" }))
-  await waitFor(() => expect(dialog.getByLabelText("Connected account")).toBeEnabled())
-  await user.selectOptions(dialog.getByLabelText("Connected account"), String(accountDto.id))
-  await user.selectOptions(dialog.getByLabelText("Target group"), String(bot.id + 100))
-  if (bot.code === "FB-POSTS-SCRAPER") await user.type(dialog.getByLabelText("Search term"), "software")
-  await user.click(dialog.getByRole("button", { name: "Start run" }))
+  await user.click(runPage.getByRole("button", { name: "Refresh accounts" }))
+  await waitFor(() => expect(runPage.getByLabelText("Connected account")).toBeEnabled())
+  await user.selectOptions(runPage.getByLabelText("Connected account"), String(accountDto.id))
+  await user.selectOptions(runPage.getByLabelText("Target group"), String(bot.id + 100))
+  if (bot.code === "FB-POSTS-SCRAPER") await user.type(runPage.getByLabelText("Search term"), "software")
+  await user.click(runPage.getByRole("button", { name: "Start run" }))
   expect(await screen.findByText("Run #42 started successfully.")).toBeInTheDocument()
   expect(writes).toHaveBeenCalledExactlyOnceWith({ botId: bot.id, connectedAccountId: accountDto.id, targetGroupId: bot.id + 100, infoJson: JSON.stringify(bot.metadata) })
 })
 
-test("a configured modal opens while accounts load and stays blocked until they arrive", async () => {
+test("a configured page opens while accounts load and stays blocked until they arrive", async () => {
   let finish!: () => void
   const pending = new Promise<void>((resolve) => { finish = resolve })
   server.use(http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/scraping/73`, async () => {
@@ -109,30 +111,30 @@ test("a configured modal opens while accounts load and stays blocked until they 
   const { user } = renderWithProviders(<Runs {...bots[0]} />)
   try {
     await user.click(await screen.findByRole("button", { name: "Start run" }))
-    const dialog = within(await screen.findByRole("dialog", { name: bots[0].title }))
-    expect(dialog.getByRole("button", { name: "Start run" })).toBeDisabled()
-    expect(dialog.getByLabelText("Connected account")).toBeDisabled()
+    const runPage = within(await screen.findByRole("region", { name: bots[0].title }))
+    expect(runPage.getByRole("button", { name: "Start run" })).toBeDisabled()
+    expect(runPage.getByLabelText("Connected account")).toBeDisabled()
     finish()
-    await waitFor(() => expect(dialog.getByLabelText("Connected account")).toBeEnabled())
+    await waitFor(() => expect(runPage.getByLabelText("Connected account")).toBeEnabled())
   } finally {
     finish()
   }
 })
 
-test("an account read error can be retried inside the modal", async () => {
+test("an account read error can be retried inside the page", async () => {
   let failing = true
   server.use(http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/scraping/75`, () => failing
     ? HttpResponse.json(apiFailure(404, "Bot subscription not found.", "/api/v1/connectedaccounts/eligible/scraping/75", "GET"), { status: 404 })
     : HttpResponse.json(apiSuccess([accountDto]))))
   const { user } = renderWithProviders(<Runs {...bots[2]} />)
   await user.click(await screen.findByRole("button", { name: "Start run" }))
-  const dialog = within(await screen.findByRole("dialog", { name: bots[2].title }))
-  expect(await dialog.findByText("Eligible connected accounts could not be loaded.")).toBeInTheDocument()
-  expect(dialog.getByRole("button", { name: "Start run" })).toBeDisabled()
+  const runPage = within(await screen.findByRole("region", { name: bots[2].title }))
+  expect(await runPage.findByText("Eligible connected accounts could not be loaded.")).toBeInTheDocument()
+  expect(runPage.getByRole("button", { name: "Start run" })).toBeDisabled()
   failing = false
-  await user.click(dialog.getByRole("button", { name: "Refresh accounts" }))
-  await waitFor(() => expect(dialog.getByLabelText("Connected account")).toBeEnabled())
-  expect(dialog.getByRole("option", { name: accountDto.displayName })).toBeInTheDocument()
+  await user.click(runPage.getByRole("button", { name: "Refresh accounts" }))
+  await waitFor(() => expect(runPage.getByLabelText("Connected account")).toBeEnabled())
+  expect(runPage.getByRole("option", { name: accountDto.displayName })).toBeInTheDocument()
 })
 
 test.each(bots)("$code requires a group before creating a run", async (bot) => {
@@ -143,12 +145,12 @@ test.each(bots)("$code requires a group before creating a run", async (bot) => {
   )
   const { user } = renderWithProviders(<Runs {...bot} />)
   await user.click(await screen.findByRole("button", { name: "Start run" }))
-  const dialog = within(await screen.findByRole("dialog", { name: bot.title }))
-  await waitFor(() => expect(dialog.getByLabelText("Connected account")).toBeEnabled())
-  await user.selectOptions(dialog.getByLabelText("Connected account"), "12")
-  if (bot.code === "FB-POSTS-SCRAPER") await user.type(dialog.getByLabelText("Search term"), "software")
-  await user.click(dialog.getByRole("button", { name: "Start run" }))
-  expect(await dialog.findByText("Choose a target group.")).toBeInTheDocument()
+  const runPage = within(await screen.findByRole("region", { name: bot.title }))
+  await waitFor(() => expect(runPage.getByLabelText("Connected account")).toBeEnabled())
+  await user.selectOptions(runPage.getByLabelText("Connected account"), "12")
+  if (bot.code === "FB-POSTS-SCRAPER") await user.type(runPage.getByLabelText("Search term"), "software")
+  await user.click(runPage.getByRole("button", { name: "Start run" }))
+  expect(await runPage.findByText("Choose a target group.")).toBeInTheDocument()
   expect(writes).not.toHaveBeenCalled()
 })
 
@@ -159,18 +161,18 @@ test.each(["empty", "inactive"])("an %s group list blocks submission and can be 
     : state === "empty" ? [] : [{ id: 6, groupName: "Paused group", groupUrl: "https://example.test/group", isActive: false }]))))
   const { user } = renderWithProviders(<Runs {...bots[0]} />)
   await user.click(await screen.findByRole("button", { name: "Start run" }))
-  const dialog = within(await screen.findByRole("dialog", { name: bots[0].title }))
-  expect(await dialog.findByText(/No active target groups are available/)).toBeInTheDocument()
-  expect(dialog.getByRole("button", { name: "Start run" })).toBeDisabled()
-  expect(dialog.getByRole("link", { name: "Manage target groups" })).toHaveAttribute("href", "/dashboard/bots/73/groups")
-  if (state === "inactive") expect(dialog.getByRole("option", { name: "Paused group (Inactive)" })).toBeDisabled()
+  const runPage = within(await screen.findByRole("region", { name: bots[0].title }))
+  expect(await runPage.findByText(/No active target groups are available/)).toBeInTheDocument()
+  expect(runPage.getByRole("button", { name: "Start run" })).toBeDisabled()
+  expect(runPage.getByRole("link", { name: "Manage target groups" })).toHaveAttribute("href", "/dashboard/bots/73/groups")
+  if (state === "inactive") expect(runPage.getByRole("option", { name: "Paused group (Inactive)" })).toBeDisabled()
   ready = true
-  await user.click(dialog.getByRole("button", { name: "Refresh groups" }))
-  await waitFor(() => expect(dialog.getByLabelText("Target group")).toBeEnabled())
-  expect(dialog.getByRole("option", { name: "Available group" })).toBeEnabled()
+  await user.click(runPage.getByRole("button", { name: "Refresh groups" }))
+  await waitFor(() => expect(runPage.getByLabelText("Target group")).toBeEnabled())
+  expect(runPage.getByRole("option", { name: "Available group" })).toBeEnabled()
 })
 
-test("group loading keeps the configured modal accessible while preventing submission", async () => {
+test("group loading keeps the configured page accessible while preventing submission", async () => {
   let finish!: () => void
   const pending = new Promise<void>((resolve) => { finish = resolve })
   server.use(http.get(`${apiOrigin}/api/v1/TargetGroups/73`, async () => {
@@ -180,11 +182,11 @@ test("group loading keeps the configured modal accessible while preventing submi
   const { user } = renderWithProviders(<Runs {...bots[0]} />)
   try {
     await user.click(await screen.findByRole("button", { name: "Start run" }))
-    const dialog = within(await screen.findByRole("dialog", { name: bots[0].title }))
-    expect(dialog.getByText("Loading target groups…")).toBeInTheDocument()
-    expect(dialog.getByRole("button", { name: "Start run" })).toBeDisabled()
+    const runPage = within(await screen.findByRole("region", { name: bots[0].title }))
+    expect(runPage.getByText("Loading target groups…")).toBeInTheDocument()
+    expect(runPage.getByRole("button", { name: "Start run" })).toBeDisabled()
     finish()
-    await waitFor(() => expect(dialog.getByLabelText("Target group")).toBeEnabled())
+    await waitFor(() => expect(runPage.getByLabelText("Target group")).toBeEnabled())
   } finally {
     finish()
   }
@@ -197,19 +199,19 @@ test("group errors can be retried without losing entered run settings", async ()
     : HttpResponse.json(apiSuccess([{ id: 5, groupName: "Available group", groupUrl: "https://example.test/group", isActive: true }]))))
   const { user, queryClient } = renderWithProviders(<Runs {...bots[1]} id={73} />)
   await user.click(await screen.findByRole("button", { name: "Start run" }))
-  const dialog = within(await screen.findByRole("dialog", { name: bots[1].title }))
-  await waitFor(() => expect(dialog.getByLabelText("Target group")).toBeEnabled())
-  await user.selectOptions(dialog.getByLabelText("Target group"), "5")
-  await user.type(dialog.getByLabelText("Search term"), "software")
+  const runPage = within(await screen.findByRole("region", { name: bots[1].title }))
+  await waitFor(() => expect(runPage.getByLabelText("Target group")).toBeEnabled())
+  await user.selectOptions(runPage.getByLabelText("Target group"), "5")
+  await user.type(runPage.getByLabelText("Search term"), "software")
   failing = true
   await act(async () => { await queryClient.invalidateQueries({ queryKey: queryKeys.groups.list({ botId: 73 }) }) })
-  expect(await dialog.findByText("Target groups could not be loaded. Please try again.")).toBeInTheDocument()
-  expect(dialog.getByRole("button", { name: "Start run" })).toBeDisabled()
+  expect(await runPage.findByText("Target groups could not be loaded. Please try again.")).toBeInTheDocument()
+  expect(runPage.getByRole("button", { name: "Start run" })).toBeDisabled()
   failing = false
-  await user.click(dialog.getByRole("button", { name: "Refresh groups" }))
-  await waitFor(() => expect(dialog.getByLabelText("Target group")).toBeEnabled())
-  expect(dialog.getByLabelText("Target group")).toHaveValue("5")
-  expect(dialog.getByLabelText("Search term")).toHaveValue("software")
+  await user.click(runPage.getByRole("button", { name: "Refresh groups" }))
+  await waitFor(() => expect(runPage.getByLabelText("Target group")).toBeEnabled())
+  expect(runPage.getByLabelText("Target group")).toHaveValue("5")
+  expect(runPage.getByLabelText("Search term")).toHaveValue("software")
 })
 
 test("a selected group that becomes inactive cannot be submitted", async () => {
@@ -227,18 +229,18 @@ test("a selected group that becomes inactive cannot be submitted", async () => {
   )
   const { user, queryClient } = renderWithProviders(<Runs {...bots[0]} />)
   await user.click(await screen.findByRole("button", { name: "Start run" }))
-  const dialog = within(await screen.findByRole("dialog", { name: bots[0].title }))
-  await waitFor(() => expect(dialog.getByLabelText("Target group")).toBeEnabled())
-  await user.selectOptions(dialog.getByLabelText("Connected account"), "12")
-  await user.selectOptions(dialog.getByLabelText("Target group"), "5")
+  const runPage = within(await screen.findByRole("region", { name: bots[0].title }))
+  await waitFor(() => expect(runPage.getByLabelText("Target group")).toBeEnabled())
+  await user.selectOptions(runPage.getByLabelText("Connected account"), "12")
+  await user.selectOptions(runPage.getByLabelText("Target group"), "5")
   active = false
   await act(async () => { await queryClient.invalidateQueries({ queryKey: queryKeys.groups.list({ botId: 73 }) }) })
-  await waitFor(() => expect(dialog.getByRole("option", { name: "First group (Inactive)" })).toBeDisabled())
-  await user.click(dialog.getByRole("button", { name: "Start run" }))
-  expect(await dialog.findByText("Choose an available option.")).toBeInTheDocument()
+  await waitFor(() => expect(runPage.getByRole("option", { name: "First group (Inactive)" })).toBeDisabled())
+  await user.click(runPage.getByRole("button", { name: "Start run" }))
+  expect(await runPage.findByText("Choose an available option.")).toBeInTheDocument()
   expect(writes).not.toHaveBeenCalled()
-  await user.selectOptions(dialog.getByLabelText("Target group"), "6")
-  await user.click(dialog.getByRole("button", { name: "Start run" }))
+  await user.selectOptions(runPage.getByLabelText("Target group"), "6")
+  await user.click(runPage.getByRole("button", { name: "Start run" }))
   expect(await screen.findByText("Run #42 started successfully.")).toBeInTheDocument()
   expect(writes).toHaveBeenCalledExactlyOnceWith({ botId: 73, connectedAccountId: 12, targetGroupId: 6, infoJson: "{}" })
 })
@@ -247,13 +249,12 @@ test("changing bots closes the old form and never shows another bot's group opti
   server.use(http.get(`${apiOrigin}/api/v1/connectedaccounts/eligible/scraping/75`, () => HttpResponse.json(apiSuccess([accountDto]))))
   const { user, rerender } = renderWithProviders(<Runs {...bots[0]} />)
   await user.click(await screen.findByRole("button", { name: "Start run" }))
-  const firstDialog = within(await screen.findByRole("dialog", { name: bots[0].title }))
+  const firstDialog = within(await screen.findByRole("region", { name: bots[0].title }))
   await waitFor(() => expect(firstDialog.getByLabelText("Target group")).toBeEnabled())
   await user.selectOptions(firstDialog.getByLabelText("Target group"), "173")
   rerender(<Runs {...bots[2]} />)
-  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
-  await user.click(await screen.findByRole("button", { name: "Start run" }))
-  const secondDialog = within(await screen.findByRole("dialog", { name: bots[2].title }))
+  await waitFor(() => expect(screen.queryByRole("region", { name: bots[0].title })).not.toBeInTheDocument())
+  const secondDialog = within(await screen.findByRole("region", { name: bots[2].title }))
   await waitFor(() => expect(secondDialog.getByLabelText("Target group")).toBeEnabled())
   expect(secondDialog.getByLabelText("Target group")).toHaveValue("")
   expect(secondDialog.getByRole("option", { name: "Group for bot 75" })).toBeInTheDocument()

@@ -3,6 +3,7 @@ import { useState } from "react"
 
 import { useAuth } from "@/context/auth/useAuth"
 import { normalizeApiError } from "@/core/api/apiError"
+import { DesktopSidebarTrigger } from "@/shared/components/layout/DesktopSidebarTrigger"
 import { MobileSidebarTrigger } from "@/shared/components/layout/MobileSidebarTrigger"
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar"
 import { Button } from "@/shared/ui/button"
@@ -48,6 +49,7 @@ export function DashboardHeader({
     <header className="dashboard-header sticky top-0 z-30 flex h-18 items-center justify-between border-b bg-white/90 px-4 backdrop-blur-md sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <MobileSidebarTrigger />
+        <DesktopSidebarTrigger />
         <div className="min-w-0">
           <h1 className="truncate text-base font-semibold tracking-tight text-slate-950 sm:text-lg">
             {title}

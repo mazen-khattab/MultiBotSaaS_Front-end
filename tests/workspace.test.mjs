@@ -403,7 +403,7 @@ test("post scraper specialization retains scoped history, pagination and filteri
   await screen.findByRole("button", { name: "Cancel run #2" });
   assert.equal(table.getAllByRole("cell", { name: "—", exact: true }).length, 3);
   fireEvent.change(screen.getByLabelText("Run status"), { target: { value: "Cancelled" } });
-  await screen.findByText("Cancelled", { selector: "td" });
+  await screen.findByRole("cell", { name: "Cancelled" });
   assert.deepEqual(requests.at(-1), { botId: liveBot.id, pageNumber: 1, pageSize: 10, statusFilter: "Cancelled" });
 });
 
@@ -464,10 +464,13 @@ test("shared Runs binds a module's transformed form and serializer instead of th
   await screen.findByRole("heading", { name: "Custom composed runs" });
   await waitFor(() => assert.equal(screen.getByRole("button", { name: "Start run" }).disabled, false));
   fireEvent.click(screen.getByRole("button", { name: "Start run" }));
-  const dialog = within(await screen.findByRole("dialog"));
-  assert.ok(dialog.getByLabelText("Fixture term"));
-  fireEvent.change(dialog.getByLabelText("Fixture account"), { target: { value: "12" } });
-  fireEvent.click(dialog.getByRole("button", { name: "Start run" }));
+  const startPage = within(await screen.findByRole("region", { name: "Start run" }));
+  assert.equal(mountedRouter.state.location.pathname, `/dashboard/bots/${liveBot.id}/runs/start`);
+  assert.equal(screen.queryByRole("dialog"), null);
+  assert.ok(startPage.getByLabelText("Fixture term"));
+  await waitFor(() => assert.equal(startPage.getByLabelText("Fixture account").disabled, false));
+  fireEvent.change(startPage.getByLabelText("Fixture account"), { target: { value: "12" } });
+  fireEvent.click(startPage.getByRole("button", { name: "Start run" }));
   await screen.findByText("Run #42 started successfully.");
   assert.deepEqual(writes, [{ botId: liveBot.id, connectedAccountId: 12, infoJson: '{"term":"fixture term"}' }]);
 });

@@ -21,6 +21,7 @@ export function DataTable<TData extends object>({
   data,
   caption,
   getRowId,
+  onRowClick,
   pagination,
   sorting,
   filters,
@@ -71,7 +72,7 @@ export function DataTable<TData extends object>({
   const span = Math.max(visibleColumns.length, 1);
 
   return (
-    <div className={cn("space-y-4", className)} aria-busy={busy}>
+    <div className={cn("min-w-0 max-w-full space-y-4", className)} aria-busy={busy}>
       <DataTableToolbar
         columns={visibleColumns}
         filters={filters}
@@ -83,8 +84,13 @@ export function DataTable<TData extends object>({
           Updating results…
         </p>
       ) : null}
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full text-sm">
+      <div
+        role="region"
+        aria-label={`${caption} — scroll horizontally`}
+        tabIndex={0}
+        className="max-w-full overflow-x-auto rounded-lg border border-border"
+      >
+        <table className="w-max min-w-full table-auto text-sm">
           <caption className="sr-only">{caption}</caption>
           <thead className="border-b bg-muted/50">
             {table.getHeaderGroups().map((group) => (
@@ -109,7 +115,7 @@ export function DataTable<TData extends object>({
                     <th
                       key={header.id}
                       scope="col"
-                      className="px-4 py-3 text-left font-medium"
+                      className="whitespace-nowrap px-4 py-3 text-left font-medium"
                       aria-sort={
                         canSort
                           ? direction === "asc"
@@ -203,11 +209,38 @@ export function DataTable<TData extends object>({
               table.getRowModel().rows.map((row) => (
                 <tr
                   key={row.id}
-                  className="border-b last:border-0 hover:bg-muted/50"
+                  className={cn(
+                    "border-b last:border-0 hover:bg-muted/50",
+                    onRowClick && "cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
+                  )}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  title={onRowClick ? "View details" : undefined}
+                  aria-description={onRowClick ? "Press Enter or Space to view details." : undefined}
+                  onClick={onRowClick ? (event) => {
+                    const target = event.target as HTMLElement;
+                    // Cell controls and portalled menus keep their own actions.
+                    if (event.defaultPrevented || !event.currentTarget.contains(target) || target.closest(
+                      'a, button, input, select, textarea, label, summary, [role="button"], [role="link"], [role="checkbox"], [role="switch"], [role="combobox"], [role="menuitem"], [contenteditable]:not([contenteditable="false"]), [data-row-click-ignore]',
+                    )) return;
+                    const selection = event.currentTarget.ownerDocument.getSelection();
+                    // Selecting a long value should leave it available to copy.
+                    if (selection && !selection.isCollapsed && event.currentTarget.contains(selection.anchorNode)) return;
+                    onRowClick(row.original);
+                  } : undefined}
+                  onKeyDown={onRowClick ? (event) => {
+                    if (event.defaultPrevented || event.target !== event.currentTarget) return;
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onRowClick(row.original);
+                    }
+                  } : undefined}
                 >
                   {row.getAllCells().map((cell) => (
                     <td key={cell.id} className="px-4 py-3 align-top">
-                      <table.FlexRender cell={cell} />
+                      {/* Give long values a readable width without squeezing other columns. */}
+                      <div className="w-max max-w-[40rem] whitespace-pre-wrap [overflow-wrap:anywhere]">
+                        <table.FlexRender cell={cell} />
+                      </div>
                     </td>
                   ))}
                 </tr>

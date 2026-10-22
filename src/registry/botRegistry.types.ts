@@ -8,6 +8,7 @@ export type BotPageConfig = Readonly<Record<string, unknown>>
 export interface BotTabComponentProps {
   readonly botId: string
   readonly config?: BotPageConfig
+  readonly view?: "start-run"
 }
 
 export type BotTabComponent = LazyExoticComponent<ComponentType<BotTabComponentProps>>

@@ -213,3 +213,49 @@ test("shared table modules have no domain or registry imports", async () => {
     assert.doesNotMatch(source, /\b(?:Run|Lead|Group|UiModuleCode)\b/, name)
   }
 })
+
+test("row clicks and focused Enter/Space open the original row without changing table semantics", () => {
+  const opened = []
+  const view = mount({ onRowClick: (row) => opened.push(row) })
+  const row = bodyRows()[0]
+  assert.equal(row.tabIndex, 0)
+  assert.equal(row.getAttribute("role"), null)
+  fireEvent.click(within(row).getByText("Zulu"))
+  fireEvent.keyDown(row, { key: "Enter" })
+  fireEvent.keyDown(row, { key: " " })
+  fireEvent.keyDown(row, { key: "ArrowRight" })
+  assert.deepEqual(opened, [data[0], data[0], data[0]])
+  assert.equal(opened[0], data[0])
+  view.rerender(h(DataTable, base))
+  assert.equal(bodyRows()[0].hasAttribute("tabindex"), false)
+})
+
+test("cell buttons, links, inputs, custom controls, and selected text never activate row details", () => {
+  const opened = [], actions = []
+  mount({ onRowClick: (row) => opened.push(row), columns: [columns[0], {
+    key: "controls", header: "Controls", cell: (row) => h("div", null,
+      h("button", { onClick: () => actions.push(row.id) }, h("span", null, `Details ${row.name}`)),
+      h("a", { href: "#profile" }, `Profile ${row.name}`),
+      h("label", null, `Select ${row.name}`, h("input", { type: "checkbox" })),
+      h("span", { "data-row-click-ignore": true }, `Custom ${row.name}`),
+    ),
+  }] })
+  const row = bodyRows()[0]
+  fireEvent.click(within(row).getByText("Details Zulu"))
+  fireEvent.keyDown(within(row).getByRole("button"), { key: "Enter" })
+  fireEvent.click(within(row).getByRole("link"))
+  fireEvent.click(within(row).getByRole("checkbox"))
+  fireEvent.click(within(row).getByText("Select Zulu"))
+  fireEvent.click(within(row).getByText("Custom Zulu"))
+  assert.deepEqual(actions, ["b"])
+  assert.deepEqual(opened, [])
+  const range = document.createRange()
+  range.selectNodeContents(within(row).getByText("Zulu"))
+  const selection = window.getSelection()
+  selection.addRange(range)
+  fireEvent.click(within(row).getByText("Zulu"))
+  assert.deepEqual(opened, [])
+  selection.removeAllRanges()
+  fireEvent.click(within(row).getByText("Zulu"))
+  assert.deepEqual(opened, [data[0]])
+})

@@ -5,6 +5,7 @@ import { RealtimeConnectionStatus } from "@/features/realtime/RealtimeConnection
 import { DashboardHeader } from "@/shared/components/layout/DashboardHeader"
 import { ClientThemeContext, useClientTheme } from "@/shared/components/layout/ClientThemeContext"
 import { useSidebar } from "@/shared/hooks/useSidebar"
+import { cn } from "@/shared/lib/utils"
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/shared/ui/sheet"
 import { SidebarProvider } from "@/shared/ui/sidebar"
 
@@ -26,7 +27,7 @@ function DashboardShellContent({
 }: DashboardShellProps) {
   const location = useLocation()
   const clientTheme = useClientTheme()
-  const { mobileOpen, setMobileOpen } = useSidebar()
+  const { desktopOpen, mobileOpen, setMobileOpen } = useSidebar()
 
   useEffect(() => {
     setMobileOpen(false)
@@ -34,7 +35,12 @@ function DashboardShellContent({
 
   return (
     <div className={clientTheme ? "client-theme client-dashboard min-h-screen bg-background" : "min-h-screen bg-background"}>
-      <div className="fixed inset-y-0 left-0 z-40 hidden w-72 md:block">{sidebar()}</div>
+      <div
+        id="desktop-navigation"
+        className={cn("fixed inset-y-0 left-0 z-40 hidden w-72", desktopOpen && "md:block")}
+      >
+        {sidebar()}
+      </div>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="w-72 border-0 bg-slate-950 p-0 text-slate-100">
@@ -46,7 +52,7 @@ function DashboardShellContent({
         </SheetContent>
       </Sheet>
 
-      <div className="min-w-0 md:pl-72">
+      <div className={cn("min-w-0", desktopOpen && "md:pl-72")}>
         <DashboardHeader title={title} description={description} accountLabel={accountLabel} />
         <RealtimeConnectionStatus />
         <main id="main-content" className="min-h-[calc(100vh-4.5rem)]">

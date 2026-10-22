@@ -1,10 +1,10 @@
 import { useId, useMemo, useState, type ReactNode } from "react";
 import type { FieldValues } from "react-hook-form";
+import { useLocation, useNavigate } from "react-router-dom";
 
-import { StartRunModal } from "@/features/runs/components/StartRunModal";
+import { buildBotStartRunPath } from "@/app/router/routePaths";
 import { RunActions } from "@/features/runs/components/RunActions";
 import { RunDetailDialog } from "@/features/runs/components/RunDetailDialog";
-import { useEligibleAccounts } from "@/features/runs/hooks/useEligibleAccounts";
 import { useRuns } from "@/features/runs/hooks/useRuns";
 import {
   RUN_STATUSES,
@@ -14,16 +14,17 @@ import {
 import type { RunsPageConfig } from "@/registry/configs/runsConfig.types";
 import type { DynamicSelectOptions } from "@/shared/components/dynamic-form/dynamicForm.types";
 import { DataTable } from "@/shared/components/data-table/DataTable";
-import { ApiErrorAlert } from "@/shared/components/feedback/ApiErrorAlert";
 import { Button } from "@/shared/ui/button";
+import StartRunPage from "./StartRunPage";
 
-interface GenericRunsPageProps<TInput extends FieldValues, TOutput extends FieldValues = TInput> {
+export interface GenericRunsPageProps<TInput extends FieldValues, TOutput extends FieldValues = TInput> {
   readonly botId: string;
   readonly config: RunsPageConfig<TInput, TOutput>;
+  readonly view?: "start-run";
   // Features supply query-backed select data and readiness, never the renderer.
   readonly options?: DynamicSelectOptions;
   readonly startDisabledReason?: string;
-  // Option readiness blocks the modal's form without hiding its recovery UI.
+  // Option readiness blocks submission without hiding the creation page's recovery UI.
   readonly startFormDisabled?: boolean;
   readonly startFormNotice?: ReactNode;
 }
@@ -32,13 +33,13 @@ interface GenericRunsPageProps<TInput extends FieldValues, TOutput extends Field
 function RunsPageSession<TInput extends FieldValues, TOutput extends FieldValues = TInput>({
   botId,
   config,
-  options,
   startDisabledReason,
-  startFormDisabled = false,
-  startFormNotice,
 }: GenericRunsPageProps<TInput, TOutput>) {
-  const [open, setOpen] = useState(false);
-  const [createdId, setCreatedId] = useState<number | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const startedRun = (location.state as { startedRun?: { botId?: string; runId?: number } } | null)?.startedRun;
+  const createdId = startedRun?.botId === botId && Number.isInteger(startedRun.runId) && (startedRun.runId ?? 0) > 0
+    ? startedRun.runId : null;
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [statusFilter, setStatusFilter] = useState<RunStatus | undefined>(
@@ -51,39 +52,7 @@ function RunsPageSession<TInput extends FieldValues, TOutput extends FieldValues
     { botId: Number(botId), pageNumber, pageSize, statusFilter },
     config.capabilities.canListRuns,
   );
-  const eligible = useEligibleAccounts(Number(botId), canStart);
-  const accountReadPending = eligible.isPending || eligible.isFetching;
   const configurationUnavailableReason = startDisabledReason ?? config.startUnavailableReason;
-  const unavailableReason =
-    configurationUnavailableReason ??
-    (canStart
-      ? accountReadPending
-        ? "Loading eligible connected accounts…"
-        : eligible.isError
-          ? "Eligible connected accounts could not be loaded."
-          : eligible.data?.length === 0
-            ? "No eligible connected accounts are available for this bot."
-            : undefined
-      : undefined);
-  // Merge feature-owned group/other options with the server's eligible accounts.
-  const formOptions: DynamicSelectOptions = config.startRun
-    ? {
-      ...options,
-      [config.startRun.accountOptionsProvider]: {
-        items: (eligible.data ?? []).map((account) => ({
-          value: String(account.id),
-          label: account.displayName,
-        })),
-        isLoading: accountReadPending,
-        error: eligible.isError
-          ? "Unable to load eligible accounts."
-          : undefined,
-        onRetry: () => {
-          void eligible.refetch();
-        },
-      },
-    }
-    : (options ?? {});
   // Keep action cells stable while refetching so pending/error state survives
   // query updates for the same row, including a rejected cancellation.
   const columns = useMemo(
@@ -127,34 +96,17 @@ function RunsPageSession<TInput extends FieldValues, TOutput extends FieldValues
         </div>
         <Button
           type="button"
-          // Account readiness blocks submission inside the modal, so users can
-          // still open their form and see how to resolve account problems.
           disabled={!canStart || Boolean(configurationUnavailableReason)}
-          onClick={() => {
-            setOpen(true);
-            // A page can remain open after cookies expire. Always refresh the
-            // server's eligibility list before allowing this modal to submit.
-            void eligible.refetch();
-          }}
+          onClick={() => navigate(buildBotStartRunPath(botId))}
         >
           Start run
         </Button>
       </div>
-      {!canStart || unavailableReason ? (
+      {!canStart || configurationUnavailableReason ? (
         <p className="text-sm text-muted-foreground">
-          {unavailableReason ??
+          {configurationUnavailableReason ??
             "Run creation is unavailable until this module's required configuration and account data are ready."}
         </p>
-      ) : null}
-      {canStart ? (
-        <ApiErrorAlert
-          error={eligible.error}
-          title="Unable to load eligible accounts"
-          onRetry={() => {
-            void eligible.refetch();
-          }}
-          retrying={eligible.isFetching}
-        />
       ) : null}
       {createdId !== null ? (
         <p
@@ -192,6 +144,7 @@ function RunsPageSession<TInput extends FieldValues, TOutput extends FieldValues
             data={runs.data?.items ?? []}
             caption={config.table.caption}
             getRowId={(run) => String(run.id)}
+            onRowClick={config.capabilities.canGetRun ? (run) => setSelectedRunId(run.id) : undefined}
             isLoading={runs.isPending}
             isFetching={runs.isFetching}
             error={runs.error}
@@ -226,28 +179,13 @@ function RunsPageSession<TInput extends FieldValues, TOutput extends FieldValues
           onClose={() => setSelectedRunId(null)}
         />
       ) : null}
-      {canStart && config.startRun ? (
-        <StartRunModal
-          key={open ? "open" : "closed"}
-          botId={botId}
-          config={config.startRun}
-          options={formOptions}
-          eligibleAccounts={eligible.data ?? []}
-          open={open}
-          disabled={Boolean(unavailableReason) || startFormDisabled}
-          notice={startFormNotice}
-          unavailableReason={unavailableReason}
-          onRefreshAccounts={() => { void eligible.refetch(); }}
-          refreshingAccounts={eligible.isFetching}
-          onOpenChange={setOpen}
-          onCreated={setCreatedId}
-        />
-      ) : null}
     </section>
   );
 }
 
 /** Module wrappers bind their typed registry config; no bot schema is assumed. */
 export default function GenericRunsPage<TInput extends FieldValues, TOutput extends FieldValues = TInput>(props: GenericRunsPageProps<TInput, TOutput>) {
-  return <RunsPageSession key={props.botId} {...props} />;
+  return props.view === "start-run"
+    ? <StartRunPage key={props.botId} {...props} />
+    : <RunsPageSession key={props.botId} {...props} />;
 }

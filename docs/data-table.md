@@ -10,6 +10,16 @@ original typed row so field types remain available even in heterogeneous column
 arrays. Custom cells take precedence over formatting. Null values display as an
 em dash; objects need an explicit formatter or renderer.
 
+Tables fill their container and scroll horizontally when their columns need more
+space. The named scroll region supports keyboard scrolling. Cell content keeps
+its natural width up to 40rem, then wraps long text and URLs without truncation.
+Custom cells should avoid narrow maximum widths so they can use this space.
+
+Supply `onRowClick(row)` to open the feature's detail view from a row click or
+Enter/Space on a focused row. Native table semantics remain intact. Buttons,
+links, form controls, and selected text do not trigger the row action. Custom
+interactive cells can also opt out with `data-row-click-ignore`.
+
 ```tsx
 import { DataTable } from "@/shared/components/data-table/DataTable"
 import type { TableConfig } from "@/registry/configs/tableConfig.types"

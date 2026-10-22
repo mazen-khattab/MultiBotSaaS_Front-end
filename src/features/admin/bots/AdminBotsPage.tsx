@@ -57,6 +57,7 @@ export default function AdminBotsPage() {
       search: search || undefined, isActive: state ? state === "active" : undefined })} />
     {notice ? <p role="status">{notice}</p> : null}
     <DataTable caption="Managed bots" data={bots.data?.items ?? []} getRowId={(bot) => String(bot.id)}
+      onRowClick={(bot) => choose({ mode: "view", id: bot.id })}
       isLoading={bots.isPending} isFetching={bots.isFetching} error={bots.error} onRetry={() => { void bots.refetch() }}
       columns={[
         { key: "name", header: "Name", accessorKey: "name" }, { key: "code", header: "UI module code", accessorKey: "uiModuleCode" },

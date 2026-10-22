@@ -70,6 +70,10 @@ export const appRoutes: RouteObject[] = [
                     lazy: lazyPage(() => import("@/features/bots/pages/BotWorkspaceHomePage")),
                   },
                   {
+                    path: "runs/start",
+                    lazy: lazyPage(() => import("@/features/bots/pages/BotStartRunRoutePage")),
+                  },
+                  {
                     path: ":tabSlug",
                     lazy: lazyPage(() => import("@/features/bots/pages/BotTabRoutePage")),
                   },
