@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import { buildBotTabPath } from "@/app/router/routePaths";
 import { LeadStatusFilter } from "@/features/leads/components/LeadStatusFilter";
+import { LeadRemovalNotice } from "@/features/leads/components/LeadRemovalNotice";
 import { LeadsTable } from "@/features/leads/components/LeadsTable";
 import { useLeads } from "@/features/leads/hooks/useLeads";
 import type { BotTabComponentProps } from "@/registry/botRegistry.types";
@@ -24,6 +25,7 @@ function LeadsSession({ botId }: BotTabComponentProps) {
 
   return (
     <section aria-label="Leads" className="space-y-6">
+      <LeadRemovalNotice botId={Number(botId)} />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h3 className="text-xl font-semibold">Leads</h3>
         <Button asChild>
@@ -39,6 +41,7 @@ function LeadsSession({ botId }: BotTabComponentProps) {
         }}
       />
       <LeadsTable
+        botId={botId}
         data={leads.data?.items ?? []}
         isLoading={leads.isPending}
         isFetching={leads.isFetching}

@@ -16,6 +16,13 @@ export const groupDto = { id: 5, groupName: "Test group", groupUrl: "https://exa
 export const groupDetailsDto = { ...groupDto, configJson: "{}", relatedLeadsCount: 45, scrapesCount: 3 }
 export const leadDto = { leadId: 101, leadFormattedId: "LED-#101", profileName: "Test lead", profileUrl: "https://example.test/profile/101",
   aiMessage: "Hello", fromGroup: "Test group", status: "Pending", createdAt: "2026-10-15T12:00:00Z" }
+export const leadDetailsDto = {
+  id: 101, botId: 73, groupId: 5, accountId: 12, scrapeId: 66, externalId: "external-profile-101",
+  profileName: "Detail recipient", profileUrl: "https://example.test/profile/101",
+  aiMessage: "مرحبًا!\n\nشكرًا لتفاعلك معنا.\nنحن سعداء بمساعدتك.", status: "Pending",
+  createdAt: "2026-10-21T15:26:13.167", processedAt: null,
+  metadataJson: JSON.stringify({ postId: "post-101", postText: "مواصفات الشقة:\nالمساحة: 135 متر مربع", commentText: "سعر", totalPosts: 0, realEstatePosts: 0, percentage: 0, isRealClient: true, reason: "لا توجد منشورات لمزيد من التحليل." }),
+}
 
 /** Success/error factories preserve the wire envelope without internal defaults. */
 export function apiSuccess<T>(data: T, message = "Success."): ApiResponse<T> {

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-import { LeadDetailsDialog } from "@/features/leads/components/LeadDetailsDialog";
+import { buildBotLeadDetailsPath } from "@/app/router/routePaths";
 import { LeadProfile } from "@/features/leads/components/LeadProfile";
 import { formatLeadCreatedAt } from "@/features/leads/components/leadPresentation";
 import type { LeadListDto } from "@/features/leads/types/leads.types";
@@ -37,28 +37,20 @@ const columns: readonly DataTableColumn<LeadListDto>[] = [
 type LeadsTableProps = Pick<
   DataTableProps<LeadListDto>,
   "data" | "pagination" | "isLoading" | "isFetching" | "error" | "onRetry"
->;
+> & { readonly botId: string };
 
 /** Share loading/error/pagination presentation without search, sort, or export. */
-export function LeadsTable(props: LeadsTableProps) {
-  const [selectedLead, setSelectedLead] = useState<LeadListDto | null>(null);
+export function LeadsTable({ botId, ...props }: LeadsTableProps) {
+  const navigate = useNavigate();
   return (
-    <>
-      <DataTable
-        {...props}
-        columns={columns}
-        caption="Bot leads"
-        getRowId={(lead) => String(lead.leadId)}
-        onRowClick={setSelectedLead}
-        emptyTitle="No leads found"
-        emptyDescription="No leads match the current bot and status filter."
-      />
-      {selectedLead ? (
-        <LeadDetailsDialog
-          lead={selectedLead}
-          onClose={() => setSelectedLead(null)}
-        />
-      ) : null}
-    </>
+    <DataTable
+      {...props}
+      columns={columns}
+      caption="Bot leads"
+      getRowId={(lead) => String(lead.leadId)}
+      onRowClick={(lead) => navigate(buildBotLeadDetailsPath(botId, lead.leadId), { state: { leadDetailsSource: "leads" } })}
+      emptyTitle="No leads found"
+      emptyDescription="No leads match the current bot and status filter."
+    />
   );
 }

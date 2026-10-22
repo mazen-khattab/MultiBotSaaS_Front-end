@@ -12,6 +12,7 @@ import { PageContainer } from "@/shared/components/layout/PageContainer"
 
 /** Retrieval belongs to the loader; the layout only composes supplied data. */
 export default function BotWorkspaceLayout({ registry }: { registry?: BotModulesRegistry }) {
+  console.log(registry);
   const { botId } = useParams<keyof BotRouteParams>()
   const workspace = useLoaderData<BotWorkspaceLoaderData>()
   const descriptor = workspace.status === "ready" ? workspace.descriptor : null
