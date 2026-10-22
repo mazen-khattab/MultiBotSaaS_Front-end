@@ -1,7 +1,9 @@
-import { ArrowLeft, ExternalLink, UserRound } from "lucide-react";
+import { ArrowLeft, ExternalLink, Pencil, UserRound } from "lucide-react";
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import { buildBotTabPath } from "@/app/router/routePaths";
+import { LeadEditForm } from "@/features/leads/components/LeadEditForm";
 import { LeadMetadata } from "@/features/leads/components/LeadMetadata";
 import { RemoveLeadButton } from "@/features/leads/components/RemoveLeadButton";
 import {
@@ -13,6 +15,7 @@ import {
   botIdSchema,
   leadIdSchema,
 } from "@/features/leads/types/leads.schemas";
+import type { LeadDetailsDto } from "@/features/leads/types/leads.types";
 import { ApiErrorAlert } from "@/shared/components/feedback/ApiErrorAlert";
 import { Button } from "@/shared/ui/button";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -42,6 +45,10 @@ export default function LeadDetailsPage({
     /^\d+$/.test(leadId) &&
     leadIdSchema.safeParse(Number(leadId)).success;
   const lead = query.data;
+  const [editingLead, setEditingLead] = useState<LeadDetailsDto | null>(null);
+  const [savedLead, setSavedLead] = useState<string | null>(null);
+  const recordKey = `${botId}:${leadId}`;
+  const editing = editingLead?.id === Number(leadId) && editingLead.botId === Number(botId);
   const href = lead ? getLeadProfileLink(lead.profileUrl) : undefined;
   const records = lead
     ? ([
@@ -64,14 +71,36 @@ export default function LeadDetailsPage({
             {fromPreview ? "Back to available leads" : "Back to leads"}
           </Link>
         </Button>
-        {valid && lead && !query.isError ? (
-          <RemoveLeadButton
-            key={`${lead.botId}:${lead.id}`}
-            lead={lead}
-            returnPath={returnPath}
-          />
+        {valid && lead && !query.isError && !editing ? (
+          <div className="flex flex-wrap gap-3">
+            <Button variant="outline" onClick={() => {
+              setSavedLead(null);
+              setEditingLead(lead);
+            }}>
+              <Pencil aria-hidden="true" />
+              Edit lead
+            </Button>
+            <RemoveLeadButton
+              key={`${lead.botId}:${lead.id}`}
+              lead={lead}
+              returnPath={returnPath}
+            />
+          </div>
         ) : null}
       </div>
+      {savedLead === recordKey ? (
+        <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          Lead #{leadId} updated.
+        </p>
+      ) : null}
+      {editing && editingLead ? (
+        <LeadEditForm key={recordKey} lead={editingLead}
+          onCancel={() => setEditingLead(null)}
+          onSaved={() => {
+            setEditingLead(null);
+            setSavedLead(recordKey);
+          }} />
+      ) : null}
       {!valid ? (
         <p role="alert" className="text-sm text-muted-foreground">
           Select a valid lead to view its details.
@@ -97,7 +126,7 @@ export default function LeadDetailsPage({
         />
       ) : lead ? (
         <>
-          <div className="luxury-panel flex flex-col items-start justify-between gap-5 p-5 sm:flex-row sm:p-7">
+          {!editing ? <div className="luxury-panel flex flex-col items-start justify-between gap-5 p-5 sm:flex-row sm:p-7">
             <div className="flex min-w-0 w-full flex-1 items-start gap-4">
               <div className="hidden size-12 shrink-0 items-center justify-center rounded-xl border bg-primary/10 text-primary sm:flex">
                 <UserRound className="size-5" aria-hidden="true" />
@@ -138,10 +167,10 @@ export default function LeadDetailsPage({
             <span className="status-badge max-w-full [overflow-wrap:anywhere]">
               {lead.status}
             </span>
-          </div>
+          </div> : null}
           <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
             <div className="min-w-0 space-y-6">
-              <section
+              {!editing ? <section
                 aria-label="AI message"
                 className="luxury-panel min-w-0 p-5 sm:p-7"
               >
@@ -152,7 +181,7 @@ export default function LeadDetailsPage({
                 >
                   {lead.aiMessage || "No AI message provided."}
                 </p>
-              </section>
+              </section> : null}
               <section
                 aria-label="Additional details"
                 className="luxury-panel min-w-0 p-5 sm:p-7"
