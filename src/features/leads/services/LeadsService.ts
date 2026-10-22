@@ -2,8 +2,8 @@ import { api } from "@/core/api/api"
 import { normalizeApiError } from "@/core/api/apiError"
 import { isApiResponse } from "@/core/api/apiGuards"
 import { readApiData } from "@/core/api/readApiData"
-import { botIdSchema, dispatchMessagingResultSchema, dispatchMessagingSchema, leadDetailsSchema, leadIdSchema, leadsPageSchema, messagingPreviewSchema } from "@/features/leads/types/leads.schemas"
-import type { DispatchMessagingDto, LeadDetailsDto, LeadsListParams } from "@/features/leads/types/leads.types"
+import { botIdSchema, dispatchMessagingResultSchema, dispatchMessagingSchema, leadDetailsSchema, leadIdSchema, leadsPageSchema, messagingPreviewSchema, updateLeadSchema } from "@/features/leads/types/leads.schemas"
+import type { DispatchMessagingDto, LeadDetailsDto, LeadsListParams, UpdateLeadDto } from "@/features/leads/types/leads.types"
 
 /** Use the canonical V2 route for both list and messaging-preview reads. */
 const leadsEndpoint = "/api/v1/leads"
@@ -16,6 +16,20 @@ function requireBotId(botId: number) {
 
 /** Reads use cookie auth, coordinated refresh, and Query's cancellation signal. */
 export const LeadsService = {
+  async updateLead(leadId: number, input: UpdateLeadDto): Promise<void> {
+    if (!leadIdSchema.safeParse(leadId).success) {
+      throw normalizeApiError({ message: "Select a valid lead before updating it." })
+    }
+    const parsed = updateLeadSchema.safeParse(input)
+    if (!parsed.success) {
+      throw normalizeApiError({ message: "Enter a profile name, profile URL, AI message, and status as text." })
+    }
+    // Use the parsed allowlist, never the caller's object or the full detail DTO.
+    const response = await api.put<unknown>(`/api/v1/Leads/UpdateLead/${leadId}`, parsed.data)
+    if (response.status === 204) return
+    if (!isApiResponse(response.data)) throw normalizeApiError(response.data)
+    if (response.data.data === false) throw normalizeApiError({ message: "The lead could not be updated." })
+  },
   async removeLead(leadId: number): Promise<void> {
     if (!leadIdSchema.safeParse(leadId).success) {
       throw normalizeApiError({ message: "Select a valid lead before removing it." })

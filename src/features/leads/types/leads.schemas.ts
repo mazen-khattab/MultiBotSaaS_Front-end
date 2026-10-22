@@ -34,6 +34,15 @@ export const leadDetailsSchema = z.object({
   metadataJson: z.string().nullable(),
 })
 
+// Strip unknown keys so spreading a detail DTO can never send metadata or IDs.
+// Status remains a backend string; no status enum was supplied by the API.
+export const updateLeadSchema = z.object({
+  profileName: z.string(),
+  profileUrl: z.string(),
+  aiMessage: z.string(),
+  status: z.string(),
+})
+
 export const leadsPageSchema = z.object({
   items: leadListSchema.array(),
   totalItems: z.number().int().nonnegative(),

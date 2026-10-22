@@ -27,6 +27,14 @@ export interface LeadDetailsDto {
   readonly metadataJson: string | null
 }
 
+/** The update endpoint accepts only these fields; metadata stays read-only. */
+export interface UpdateLeadDto {
+  readonly profileName: string
+  readonly profileUrl: string
+  readonly aiMessage: string
+  readonly status: string
+}
+
 export interface LeadsListParams {
   readonly botId: number
   readonly pageNumber: number
