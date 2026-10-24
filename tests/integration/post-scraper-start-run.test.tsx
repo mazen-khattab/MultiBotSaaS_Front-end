@@ -47,7 +47,7 @@ test("a direct start-page visit shows every field in sections, and Cancel return
   for (const title of ["Account and target group", "Collection settings", "AI instructions"]) {
     expect(page.getByRole("region", { name: title })).toBeInTheDocument();
   }
-  for (const label of ["Connected account", "Target group", "Search term", "Posts count", "Post description", "Analyze comment prompt", "Analyze profile posts prompt", "AI message structure"]) {
+  for (const label of ["Connected account", "Target group", "Search term", "Posts count", "Post description", "Analyze profile posts prompt", "AI message structure"]) {
     expect(page.getByLabelText(label)).toBeInTheDocument();
   }
   await user.type(page.getByLabelText("Search term"), "Unsubmitted settings");
@@ -145,7 +145,6 @@ test("registered Post Scraper sends custom fields as infoJson and refreshes hist
   await user.type(runPage.getByLabelText("Posts count"), "250");
   for (const label of [
     "Post description",
-    "Analyze comment prompt",
     "Analyze profile posts prompt",
   ]) {
     expect(runPage.getByLabelText(label).tagName).toBe("TEXTAREA");
@@ -153,8 +152,6 @@ test("registered Post Scraper sends custom fields as infoJson and refreshes hist
   }
   await user.click(runPage.getByLabelText("Post description"));
   await user.paste('Posts about "software"\nKeep relevant context.');
-  await user.click(runPage.getByLabelText("Analyze comment prompt"));
-  await user.paste("Analyze intent.\nInclude questions.");
   await user.click(runPage.getByLabelText("Analyze profile posts prompt"));
   await user.paste("Summarize the author's posts.");
   await user.click(runPage.getByLabelText("AI message structure"));
@@ -172,7 +169,6 @@ test("registered Post Scraper sends custom fields as infoJson and refreshes hist
       searchTerm: "software",
       postsCount: 250,
       postDescription: 'Posts about "software"\nKeep relevant context.',
-      analyzieCommentPrompt: "Analyze intent.\nInclude questions.",
       analyzieProfilePrompt: "Summarize the author's posts.",
       aiMessageStructure: "Structure about the ai message."
     }),
@@ -251,10 +247,6 @@ test("a cooldown rejection preserves settings and permits an explicit retry", as
   await user.type(runPage.getByLabelText("Search term"), "software");
   await user.type(runPage.getByLabelText("Post description"), "Relevant posts");
   await user.type(
-    runPage.getByLabelText("Analyze comment prompt"),
-    "Find intent",
-  );
-  await user.type(
     runPage.getByLabelText("Analyze profile posts prompt"),
     "Find interests",
   );
@@ -266,9 +258,6 @@ test("a cooldown rejection preserves settings and permits an explicit retry", as
   expect(runPage.getByLabelText("Posts count")).toHaveValue(10);
   expect(runPage.getByLabelText("Post description")).toHaveValue(
     "Relevant posts",
-  );
-  expect(runPage.getByLabelText("Analyze comment prompt")).toHaveValue(
-    "Find intent",
   );
   expect(runPage.getByLabelText("Analyze profile posts prompt")).toHaveValue(
     "Find interests",
@@ -350,7 +339,6 @@ test("metadata extraction rejects unknown historical shapes and account IDs", ()
     searchTerm: " software ",
     postsCount: 1,
     postDescription: "",
-    analyzieCommentPrompt: "",
     analyzieProfilePrompt: "",
     aiMessageStructure: "",
   };
