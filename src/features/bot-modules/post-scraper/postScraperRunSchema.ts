@@ -11,7 +11,7 @@ export const postScraperRunMetadataSchema = z.strictObject({
     .min(1, "Enter at least 1 post.")
     .max(1000, "Enter no more than 1000 posts."),
   postDescription: z.string(),
-  analyzieCommentPrompt: z.string(),
+  // analyzieCommentPrompt: z.string(),
   analyzieProfilePrompt: z.string(),
   aiMessageStructure: z.string(),
 })

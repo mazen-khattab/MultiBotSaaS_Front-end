@@ -20,9 +20,26 @@ export const postScraperStartRunConfig: StartRunConfig<PostScraperRunValues> = {
   form: {
     schema: postScraperRunSchema,
     sections: [
-      { key: "connections", title: "Account and target group", description: "Choose which account will collect posts and where it will run.", fields: ["accountId", "targetGroupId"] },
-      { key: "collection", title: "Collection settings", description: "Define the posts to find and how many to collect.", fields: ["searchTerm", "postsCount", "postDescription"] },
-      { key: "instructions", title: "AI instructions", description: "Add guidance for analyzing comments, reviewing profiles, and writing messages.", fields: ["analyzieCommentPrompt", "analyzieProfilePrompt", "aiMessageStructure"] },
+      {
+        key: "connections",
+        title: "Account and target group",
+        description:
+          "Choose which account will collect posts and where it will run.",
+        fields: ["accountId", "targetGroupId"],
+      },
+      {
+        key: "collection",
+        title: "Collection settings",
+        description: "Define the posts to find and how many to collect.",
+        fields: ["searchTerm", "postsCount", "postDescription"],
+      },
+      {
+        key: "instructions",
+        title: "AI instructions",
+        description:
+          "Add guidance for analyzing comments, reviewing profiles, and writing messages.",
+        fields: ["analyzieProfilePrompt", "aiMessageStructure"],
+      },
     ],
     defaultValues: {
       accountId: "",
@@ -30,7 +47,7 @@ export const postScraperStartRunConfig: StartRunConfig<PostScraperRunValues> = {
       searchTerm: "",
       postsCount: 10,
       postDescription: "",
-      analyzieCommentPrompt: "",
+      // analyzieCommentPrompt: "",
       analyzieProfilePrompt: "",
       aiMessageStructure: "",
     },
@@ -66,11 +83,11 @@ export const postScraperStartRunConfig: StartRunConfig<PostScraperRunValues> = {
         label: "Post description",
         type: "textarea",
       },
-      {
-        name: "analyzieCommentPrompt",
-        label: "Analyze comment prompt",
-        type: "textarea",
-      },
+      // {
+      //   name: "analyzieCommentPrompt",
+      //   label: "Analyze comment prompt",
+      //   type: "textarea",
+      // },
       {
         name: "analyzieProfilePrompt",
         label: "Analyze profile posts prompt",
@@ -92,7 +109,7 @@ export const postScraperStartRunConfig: StartRunConfig<PostScraperRunValues> = {
       searchTerm: values.searchTerm,
       postsCount: values.postsCount,
       postDescription: values.postDescription,
-      analyzieCommentPrompt: values.analyzieCommentPrompt,
+      // analyzieCommentPrompt: values.analyzieCommentPrompt,
       analyzieProfilePrompt: values.analyzieProfilePrompt,
       aiMessageStructure: values.aiMessageStructure,
     }),

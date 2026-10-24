@@ -13,7 +13,6 @@ export const resolveBotModule = (
 ): BotModuleDefinition | UnsupportedBotModuleError => {
   // Object prototype members (for example, "toString") are not registrations.
   // Preserve case and whitespace so an unknown backend code fails explicitly.
-  console.log(registry)
   const definition = Object.hasOwn(registry, uiModuleCode) ? registry[uiModuleCode] : undefined
   return definition ?? new UnsupportedBotModuleError(uiModuleCode)
 }

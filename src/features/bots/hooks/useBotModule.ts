@@ -27,7 +27,6 @@ export function useBotModule(descriptor: BotWorkspaceDescriptor | null, registry
   if (!descriptor)
     return { status: "unavailable", module: null, tabs: [], error: null };
 
-  console.log(registry)
   const module = resolveBotModule(descriptor.uiModuleCode, registry);
   if (module instanceof UnsupportedBotModuleError) {
     return { status: "unsupported", module: null, tabs: [], error: module };

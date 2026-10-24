@@ -13,7 +13,7 @@ import { renderWithProviders } from "@/test/renderWithProviders"
 const bots = [
   { code: "FB-MEMBERS-SCRAPER", id: 73, title: "Start Members Scraper", metadata: {} },
   { code: "FB-POSTS-SCRAPER", id: 74, title: "Start Post Scraper", metadata: {
-    searchTerm: "software", postsCount: 10, postDescription: "", analyzieCommentPrompt: "", analyzieProfilePrompt: "", aiMessageStructure: "",
+    searchTerm: "software", postsCount: 10, postDescription: "", analyzieProfilePrompt: "", aiMessageStructure: "",
   } },
   { code: "FB-MEMBERS-MESSAGES-SCRAPER", id: 75, title: "Start Members Messages Scraper", metadata: {} },
 ] as const
@@ -62,7 +62,6 @@ test.each(bots)("$code opens its own form and sends the current bot ID and only 
     expect(runPage.queryByLabelText("Search term")).not.toBeInTheDocument()
     expect(runPage.queryByLabelText("Posts count")).not.toBeInTheDocument()
     expect(runPage.queryByLabelText("Post description")).not.toBeInTheDocument()
-    expect(runPage.queryByLabelText("Analyze comment prompt")).not.toBeInTheDocument()
     expect(runPage.queryByLabelText("Analyze profile posts prompt")).not.toBeInTheDocument()
     expect(runPage.queryByLabelText("Group members count")).not.toBeInTheDocument()
   }
