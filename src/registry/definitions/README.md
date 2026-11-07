@@ -46,7 +46,7 @@ These flags describe frontend implementation. Backend subscription, ownership,
 account eligibility, and authorization checks remain authoritative. All current
 modules retain their established pages, including the Part 17 messaging flow.
 Post Scraper owns its DTO-based run columns, start form, and serializer in its
-module folder. The form includes Search term, Posts count, Post description,
+module folder. The form includes Date, Posts count, Post description,
 and analysis prompts. See [Start run](../../../docs/START_RUN.md)
 for the requested metadata format and how to add fields. Other specializations remain deferred.
 

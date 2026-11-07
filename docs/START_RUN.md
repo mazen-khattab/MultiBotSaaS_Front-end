@@ -5,7 +5,7 @@ All three registered scrapers now have independent start-run forms:
 | Bot | Current fields | Custom `infoJson` |
 | --- | --- | --- |
 | `FB-MEMBERS-SCRAPER` | Connected account, Target group | `{}` |
-| `FB-POSTS-SCRAPER` | Connected account, Target group, Search term, Posts count, Post description, Analyze comment prompt, Analyze profile posts prompt, AI message structure | `{"searchTerm":"software","postsCount":10,"postDescription":"","analyzieCommentPrompt":"","analyzieProfilePrompt":"","aiMessageStructure":""}` |
+| `FB-POSTS-SCRAPER` | Connected account, Target group, Date, Posts count, Post description, Analyze comment prompt, Analyze profile posts prompt, AI message structure | `{"date":"2026-11-08","postsCount":10,"postDescription":"","analyzieCommentPrompt":"","analyzieProfilePrompt":"","aiMessageStructure":""}` |
 | `FB-MEMBERS-MESSAGES-SCRAPER` | Connected account, Target group | `{}` |
 
 The member bots select an account and group without extra run metadata. Their existing `groupMembersCount` and
@@ -26,7 +26,7 @@ They are not silently copied into a run's `infoJson`.
    be selected. If there are no active groups, use **Manage target groups**, then
    **Refresh groups**. Loading or failed group reads block submission with a
    recovery message. The Start run button still navigates to the form page.
-5. For Post Scraper, enter a search term and a posts count from 1 to 1000. The
+5. For Post Scraper, enter a date and a posts count from 1 to 1000. The
    post description, comment analysis prompt, profile posts analysis prompt, and
    AI message structure are optional textareas. Fields are grouped into account
    and target group, collection settings, and AI instructions. Empty values are
@@ -44,7 +44,7 @@ The browser sends a cookie-authenticated `POST /api/v1/scrapes`:
   "botId": 73,
   "connectedAccountId": 12,
   "targetGroupId": 5,
-  "infoJson": "{\"searchTerm\":\"software\",\"postsCount\":100,\"postDescription\":\"\",\"analyzieCommentPrompt\":\"\",\"analyzieProfilePrompt\":\"\"}"
+  "infoJson": "{\"date\":\"2026-11-08\",\"postsCount\":100,\"postDescription\":\"\",\"analyzieCommentPrompt\":\"\",\"analyzieProfilePrompt\":\"\"}"
 }
 ```
 
@@ -57,7 +57,7 @@ Post Scraper. Member bots currently send `"infoJson": "{}"`, using the documente
 no-metadata path. All three use the current workspace ID and eligible account ID.
 
 These custom field names implement the requested frontend example. The backend's
-n8n workflow must consume `searchTerm`, `postsCount`, `postDescription`,
+n8n workflow must consume `date`, `postsCount`, `postDescription`,
 `analyzieCommentPrompt`, and `analyzieProfilePrompt` from the run's info payload.
 The `analyzie` spelling is intentional to match the requested JSON keys.
 The generic endpoint already exists; successful real workflow execution has not

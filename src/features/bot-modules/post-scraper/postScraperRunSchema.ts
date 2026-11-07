@@ -5,7 +5,7 @@ import { runTargetGroupIdSchema } from "@/features/runs/forms/runTargetGroupFiel
 // These are the custom run fields selected for the Post Scraper form. Keep
 // account and group selection outside this object so they never leak into infoJson.
 export const postScraperRunMetadataSchema = z.strictObject({
-  searchTerm: z.string().trim().min(1, "Enter a search term."),
+  date: z.string().trim().min(1, "Enter a date."),
   postsCount: z.number({ error: "Enter the posts count." })
     .int("Enter a whole number.")
     .min(1, "Enter at least 1 post.")

@@ -1,6 +1,6 @@
 # Part 19: Post Scraper specialization
 
-> Update: Post Scraper creation now implements Search term, Posts count,
+> Update: Post Scraper creation now implements Date, Posts count,
 > Post description, and analysis prompt fields. See [Start run and custom bot fields](./START_RUN.md) for
 > the current configuration, payload, and workflow compatibility requirement.
 > The blocked schema/adapter descriptions below record the original Part 19 state.

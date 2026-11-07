@@ -2,7 +2,7 @@ import type { DefaultValues, DeepPartialSkipArrayKey, FieldPath, FieldPathByValu
 import type { ZodType } from "zod"
 import type { ReactNode } from "react"
 
-export type DynamicFieldType = "text" | "textarea" | "select" | "number" | "checkbox" | "switch"
+export type DynamicFieldType = "text" | "textarea" | "select" | "number" | "checkbox" | "switch" | "date"
 
 /** Rules are trusted frontend functions, evaluated against current input values. */
 export type DynamicFieldRule<TInput extends FieldValues> = boolean | ((values: Readonly<DeepPartialSkipArrayKey<TInput>>) => boolean)
@@ -69,8 +69,17 @@ type BooleanField<TInput extends FieldValues> = {
   }
 }[FieldPathByValue<TInput, boolean | undefined>]
 
+type DateField<TInput extends FieldValues> = {
+  [TName in FieldPathByValue<TInput, string | null | undefined>]: FieldDefinitionBase<TInput, TName> & {
+    readonly type: "date"
+    readonly placeholder?: string
+    readonly min?: string
+    readonly max?: string
+  }
+}[FieldPathByValue<TInput, string | null | undefined>]
+
 /** Each renderer accepts only compatible paths and defaults from the input type. */
-export type DynamicFieldDefinition<TInput extends FieldValues> = TextField<TInput> | SelectField<TInput> | NumberField<TInput> | BooleanField<TInput>
+export type DynamicFieldDefinition<TInput extends FieldValues> = TextField<TInput> | SelectField<TInput> | NumberField<TInput> | BooleanField<TInput> | DateField<TInput>
 
 export interface DynamicFormConfig<TInput extends FieldValues, TOutput extends FieldValues = TInput> {
   readonly fields: readonly DynamicFieldDefinition<TInput>[]
