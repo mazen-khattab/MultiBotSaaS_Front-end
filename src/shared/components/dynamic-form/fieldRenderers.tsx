@@ -17,8 +17,8 @@ interface FieldRendererProps {
   placeholder?: string
   sensitive?: boolean
   autoComplete?: string
-  min?: number
-  max?: number
+  min?: number | string
+  max?: number | string
   step?: number | "any"
   options?: readonly DynamicSelectOption[]
 }
@@ -71,9 +71,21 @@ function BooleanRenderer({ inputRef, ...props }: FieldRendererProps) {
     className="size-4 rounded border-border accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50" />
 }
 
+function DateRenderer({ inputRef, ...props }: FieldRendererProps) {
+  return <input id={props.id} name={props.name} ref={inputRef} type="date"
+    value={typeof props.value === "string" ? props.value : ""}
+    onChange={(event) => props.onChange(event.target.value)} onBlur={props.onBlur}
+    disabled={props.disabled} aria-required={props.required} aria-invalid={props.invalid} aria-describedby={props.describedBy}
+    placeholder={props.placeholder}
+    min={typeof props.min === "string" || typeof props.min === "number" ? props.min : undefined}
+    max={typeof props.max === "string" || typeof props.max === "number" ? props.max : undefined}
+    className={inputClassName} />
+}
+
 const fieldRenderers: Record<DynamicFieldType, ComponentType<FieldRendererProps>> = {
   text: TextRenderer, textarea: TextareaRenderer, select: SelectRenderer,
   number: NumberRenderer, checkbox: BooleanRenderer, switch: BooleanRenderer,
+  date: DateRenderer,
 }
 
 /** Rendering is selected only from the static, typed frontend field union. */

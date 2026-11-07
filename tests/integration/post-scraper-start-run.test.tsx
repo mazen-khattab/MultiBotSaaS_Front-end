@@ -47,10 +47,10 @@ test("a direct start-page visit shows every field in sections, and Cancel return
   for (const title of ["Account and target group", "Collection settings", "AI instructions"]) {
     expect(page.getByRole("region", { name: title })).toBeInTheDocument();
   }
-  for (const label of ["Connected account", "Target group", "Search term", "Posts count", "Post description", "Analyze profile posts prompt", "AI message structure"]) {
+  for (const label of ["Connected account", "Target group", "Date", "Posts count", "Post description", "Analyze profile posts prompt", "AI message structure"]) {
     expect(page.getByLabelText(label)).toBeInTheDocument();
   }
-  await user.type(page.getByLabelText("Search term"), "Unsubmitted settings");
+  await user.type(page.getByLabelText("Date"), "2026-11-08");
   await user.click(page.getByRole("button", { name: "Cancel" }));
   expect(screen.getByLabelText("Current route")).toHaveTextContent("/dashboard/bots/73/runs");
   expect(screen.queryByRole("form", { name: "Start Post Scraper" })).not.toBeInTheDocument();
@@ -140,7 +140,7 @@ test("registered Post Scraper sends custom fields as infoJson and refreshes hist
   expect(runPage.getByLabelText("Posts count")).toHaveValue(10);
   await user.selectOptions(runPage.getByLabelText("Connected account"), "12");
   await user.selectOptions(runPage.getByLabelText("Target group"), "5");
-  await user.type(runPage.getByLabelText("Search term"), "  software  ");
+  await user.type(runPage.getByLabelText("Date"), "2026-11-08");
   await user.clear(runPage.getByLabelText("Posts count"));
   await user.type(runPage.getByLabelText("Posts count"), "250");
   for (const label of [
@@ -166,7 +166,7 @@ test("registered Post Scraper sends custom fields as infoJson and refreshes hist
     connectedAccountId: 12,
     targetGroupId: 5,
     infoJson: JSON.stringify({
-      searchTerm: "software",
+      date: "2026-11-08",
       postsCount: 250,
       postDescription: 'Posts about "software"\nKeep relevant context.',
       analyzieProfilePrompt: "Summarize the author's posts.",
@@ -199,7 +199,7 @@ test.each([
     const { user, runPage } = await openRunForm();
     await user.selectOptions(runPage.getByLabelText("Connected account"), "12");
     await user.selectOptions(runPage.getByLabelText("Target group"), "5");
-    await user.type(runPage.getByLabelText("Search term"), "software");
+    await user.type(runPage.getByLabelText("Date"), "2026-11-08");
     await user.clear(runPage.getByLabelText("Posts count"));
     if (limit) await user.type(runPage.getByLabelText("Posts count"), limit);
     await user.click(runPage.getByRole("button", { name: "Start run" }));
@@ -209,7 +209,7 @@ test.each([
   },
 );
 
-test("account and nonblank search term are required before submission", async () => {
+test("account and nonblank date are required before submission", async () => {
   const writes = vi.fn();
   server.use(
     http.post(`${apiOrigin}/api/v1/scrapes`, () => {
@@ -218,12 +218,12 @@ test("account and nonblank search term are required before submission", async ()
     }),
   );
   const { user, runPage } = await openRunForm();
-  await user.type(runPage.getByLabelText("Search term"), "   ");
+  await user.type(runPage.getByLabelText("Date"), "   ");
   await user.click(runPage.getByRole("button", { name: "Start run" }));
   expect(
     await screen.findByText("Choose a connected account."),
   ).toBeInTheDocument();
-  expect(screen.getByText("Enter a search term.")).toBeInTheDocument();
+  expect(screen.getByText("Enter a date.")).toBeInTheDocument();
   expect(writes).not.toHaveBeenCalled();
 });
 
@@ -244,7 +244,7 @@ test("a cooldown rejection preserves settings and permits an explicit retry", as
   const { user, runPage } = await openRunForm();
   await user.selectOptions(runPage.getByLabelText("Connected account"), "12");
   await user.selectOptions(runPage.getByLabelText("Target group"), "5");
-  await user.type(runPage.getByLabelText("Search term"), "software");
+  await user.type(runPage.getByLabelText("Date"), "2026-11-08");
   await user.type(runPage.getByLabelText("Post description"), "Relevant posts");
   await user.type(
     runPage.getByLabelText("Analyze profile posts prompt"),
@@ -254,7 +254,7 @@ test("a cooldown rejection preserves settings and permits an explicit retry", as
   expect(await screen.findByText(/Bot is on cooldown/)).toBeInTheDocument();
   expect(runPage.getByLabelText("Connected account")).toHaveValue("12");
   expect(runPage.getByLabelText("Target group")).toHaveValue("5");
-  expect(runPage.getByLabelText("Search term")).toHaveValue("software");
+  expect(runPage.getByLabelText("Date")).toHaveValue("2026-11-08");
   expect(runPage.getByLabelText("Posts count")).toHaveValue(10);
   expect(runPage.getByLabelText("Post description")).toHaveValue(
     "Relevant posts",
@@ -287,7 +287,7 @@ test("pending creation prevents duplicate requests and dismissal", async () => {
   const { user, runPage } = await openRunForm();
   await user.selectOptions(runPage.getByLabelText("Connected account"), "12");
   await user.selectOptions(runPage.getByLabelText("Target group"), "5");
-  await user.type(runPage.getByLabelText("Search term"), "software");
+  await user.type(runPage.getByLabelText("Date"), "2026-11-08");
   const form = runPage.getByRole("form", { name: "Start Post Scraper" });
   fireEvent.submit(form);
   fireEvent.submit(form);
@@ -336,17 +336,17 @@ test("no eligible accounts leaves the form accessible with guidance and blocks s
 test("metadata extraction rejects unknown historical shapes and account IDs", () => {
   const { serializeInfoJson, extractInfoJson } = postScraperRunAdapter.adapter;
   const metadata = {
-    searchTerm: " software ",
+    date: " 2026-11-08 ",
     postsCount: 1,
     postDescription: "",
     analyzieProfilePrompt: "",
     aiMessageStructure: "",
   };
   const json = serializeInfoJson(metadata);
-  expect(JSON.parse(json)).toEqual({ ...metadata, searchTerm: "software" });
+  expect(JSON.parse(json)).toEqual({ ...metadata, date: "2026-11-08" });
   expect(extractInfoJson(json)).toEqual({
     ...metadata,
-    searchTerm: "software",
+    date: "2026-11-08",
   });
   for (const invalidMetadata of [
     "{}",
@@ -355,6 +355,7 @@ test("metadata extraction rejects unknown historical shapes and account IDs", ()
     "[]",
     '{"keywords":["software"]}',
     '{"searchTerm":"software","maxResults":1}',
+    '{"searchTerm":"software","postsCount":1}',
     JSON.stringify({ ...metadata, accountId: 12 }),
   ]) {
     expect(extractInfoJson(invalidMetadata)).toBeUndefined();

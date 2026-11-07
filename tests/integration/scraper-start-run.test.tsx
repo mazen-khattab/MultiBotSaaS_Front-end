@@ -13,7 +13,7 @@ import { renderWithProviders } from "@/test/renderWithProviders"
 const bots = [
   { code: "FB-MEMBERS-SCRAPER", id: 73, title: "Start Members Scraper", metadata: {} },
   { code: "FB-POSTS-SCRAPER", id: 74, title: "Start Post Scraper", metadata: {
-    searchTerm: "software", postsCount: 10, postDescription: "", analyzieProfilePrompt: "", aiMessageStructure: "",
+    date: "2026-11-08", postsCount: 10, postDescription: "", analyzieProfilePrompt: "", aiMessageStructure: "",
   } },
   { code: "FB-MEMBERS-MESSAGES-SCRAPER", id: 75, title: "Start Members Messages Scraper", metadata: {} },
 ] as const
@@ -56,10 +56,10 @@ test.each(bots)("$code opens its own form and sends the current bot ID and only 
   await user.selectOptions(account, String(accountDto.id))
   await user.selectOptions(runPage.getByLabelText("Target group"), String(bot.id + 100))
   if (bot.code === "FB-POSTS-SCRAPER") {
-    await user.type(runPage.getByLabelText("Search term"), "software")
+    await user.type(runPage.getByLabelText("Date"), "2026-11-08")
     expect(runPage.getByLabelText("Posts count")).toHaveValue(10)
   } else {
-    expect(runPage.queryByLabelText("Search term")).not.toBeInTheDocument()
+    expect(runPage.queryByLabelText("Date")).not.toBeInTheDocument()
     expect(runPage.queryByLabelText("Posts count")).not.toBeInTheDocument()
     expect(runPage.queryByLabelText("Post description")).not.toBeInTheDocument()
     expect(runPage.queryByLabelText("Analyze profile posts prompt")).not.toBeInTheDocument()
@@ -94,7 +94,7 @@ test.each(bots)("$code opens without eligible accounts and recovers through Refr
   await waitFor(() => expect(runPage.getByLabelText("Connected account")).toBeEnabled())
   await user.selectOptions(runPage.getByLabelText("Connected account"), String(accountDto.id))
   await user.selectOptions(runPage.getByLabelText("Target group"), String(bot.id + 100))
-  if (bot.code === "FB-POSTS-SCRAPER") await user.type(runPage.getByLabelText("Search term"), "software")
+  if (bot.code === "FB-POSTS-SCRAPER") await user.type(runPage.getByLabelText("Date"), "2026-11-08")
   await user.click(runPage.getByRole("button", { name: "Start run" }))
   expect(await screen.findByText("Run #42 started successfully.")).toBeInTheDocument()
   expect(writes).toHaveBeenCalledExactlyOnceWith({ botId: bot.id, connectedAccountId: accountDto.id, targetGroupId: bot.id + 100, infoJson: JSON.stringify(bot.metadata) })
@@ -147,7 +147,7 @@ test.each(bots)("$code requires a group before creating a run", async (bot) => {
   const runPage = within(await screen.findByRole("region", { name: bot.title }))
   await waitFor(() => expect(runPage.getByLabelText("Connected account")).toBeEnabled())
   await user.selectOptions(runPage.getByLabelText("Connected account"), "12")
-  if (bot.code === "FB-POSTS-SCRAPER") await user.type(runPage.getByLabelText("Search term"), "software")
+  if (bot.code === "FB-POSTS-SCRAPER") await user.type(runPage.getByLabelText("Date"), "2026-11-08")
   await user.click(runPage.getByRole("button", { name: "Start run" }))
   expect(await runPage.findByText("Choose a target group.")).toBeInTheDocument()
   expect(writes).not.toHaveBeenCalled()
@@ -201,7 +201,7 @@ test("group errors can be retried without losing entered run settings", async ()
   const runPage = within(await screen.findByRole("region", { name: bots[1].title }))
   await waitFor(() => expect(runPage.getByLabelText("Target group")).toBeEnabled())
   await user.selectOptions(runPage.getByLabelText("Target group"), "5")
-  await user.type(runPage.getByLabelText("Search term"), "software")
+  await user.type(runPage.getByLabelText("Date"), "2026-11-08")
   failing = true
   await act(async () => { await queryClient.invalidateQueries({ queryKey: queryKeys.groups.list({ botId: 73 }) }) })
   expect(await runPage.findByText("Target groups could not be loaded. Please try again.")).toBeInTheDocument()
@@ -210,7 +210,7 @@ test("group errors can be retried without losing entered run settings", async ()
   await user.click(runPage.getByRole("button", { name: "Refresh groups" }))
   await waitFor(() => expect(runPage.getByLabelText("Target group")).toBeEnabled())
   expect(runPage.getByLabelText("Target group")).toHaveValue("5")
-  expect(runPage.getByLabelText("Search term")).toHaveValue("software")
+  expect(runPage.getByLabelText("Date")).toHaveValue("2026-11-08")
 })
 
 test("a selected group that becomes inactive cannot be submitted", async () => {

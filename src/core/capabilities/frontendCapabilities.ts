@@ -63,7 +63,7 @@ export const frontendCapabilities = Object.freeze({
   },
   postScraperRunConfiguration: {
     status: "available", audience: "browser", contract: "§3.4, §8.1.1",
-    description: "Post Scraper has account and target-group pickers, a validated search term and result limit, and a module-owned infoJson serializer.",
+    description: "Post Scraper has account and target-group pickers, a validated date and result limit, and a module-owned infoJson serializer.",
   },
   runHistory: {
     status: "available", audience: "browser", contract: "§8.1.2",

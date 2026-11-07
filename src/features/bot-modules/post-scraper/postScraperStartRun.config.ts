@@ -31,7 +31,7 @@ export const postScraperStartRunConfig: StartRunConfig<PostScraperRunValues> = {
         key: "collection",
         title: "Collection settings",
         description: "Define the posts to find and how many to collect.",
-        fields: ["searchTerm", "postsCount", "postDescription"],
+        fields: ["date", "postsCount", "postDescription"],
       },
       {
         key: "instructions",
@@ -44,7 +44,7 @@ export const postScraperStartRunConfig: StartRunConfig<PostScraperRunValues> = {
     defaultValues: {
       accountId: "",
       targetGroupId: "",
-      searchTerm: "",
+      date: "",
       postsCount: 10,
       postDescription: "",
       // analyzieCommentPrompt: "",
@@ -62,10 +62,9 @@ export const postScraperStartRunConfig: StartRunConfig<PostScraperRunValues> = {
       },
       runTargetGroupField,
       {
-        name: "searchTerm",
-        label: "Search term",
-        type: "text",
-        placeholder: "For example, software",
+        name: "date",
+        label: "Date",
+        type: "date",
         required: true,
       },
       {
@@ -106,7 +105,7 @@ export const postScraperStartRunConfig: StartRunConfig<PostScraperRunValues> = {
   }),
   serializeInfoJson: (values) =>
     postScraperRunAdapter.adapter.serializeInfoJson({
-      searchTerm: values.searchTerm,
+      date: values.date,
       postsCount: values.postsCount,
       postDescription: values.postDescription,
       // analyzieCommentPrompt: values.analyzieCommentPrompt,
